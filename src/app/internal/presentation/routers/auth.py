@@ -1,9 +1,23 @@
 from ninja import Router, Schema
 
-from app.internal.presentation.handlers.auth import JWTBearerAuth, login_handler, refresh_token_handler
+from app.internal.presentation.handlers.auth import (
+    JWTBearerAuth,
+    confirm_password_change_handler,
+    delete_account_handler,
+    login_handler,
+    refresh_token_handler,
+    register_handler,
+    request_password_change_handler,
+)
 
 router = Router(tags=["auth"])
 jwt_bearer_auth = JWTBearerAuth()
+
+
+class RegisterInput(Schema):
+    username: str
+    email: str
+    password: str
 
 
 class LoginInput(Schema):
@@ -32,6 +46,34 @@ class CurrentUserOutput(Schema):
     email: str
     is_active: bool
     is_staff: bool
+
+
+class PasswordChangeConfirmInput(Schema):
+    code: str
+    new_password: str
+
+
+class MessageOutput(Schema):
+    detail: str
+
+
+class PasswordChangeRequestOutput(Schema):
+    detail: str
+    expires_at: str
+
+
+@router.post("/register", response=TokenPairOutput)
+def register(request, payload: RegisterInput):
+    token_pair = register_handler(
+        username=payload.username,
+        email=payload.email,
+        password=payload.password,
+    )
+    return {
+        "access_token": token_pair.access_token,
+        "refresh_token": token_pair.refresh_token,
+        "token_type": token_pair.token_type,
+    }
 
 
 @router.post("/login", response=TokenPairOutput)
@@ -63,3 +105,22 @@ def me(request):
         "is_active": user.is_active,
         "is_staff": user.is_staff,
     }
+
+
+@router.post("/password/change/request", auth=jwt_bearer_auth, response=PasswordChangeRequestOutput)
+def request_password_change(request):
+    return request_password_change_handler(user_id=request.auth.id)
+
+
+@router.post("/password/change/confirm", auth=jwt_bearer_auth, response=MessageOutput)
+def confirm_password_change(request, payload: PasswordChangeConfirmInput):
+    return confirm_password_change_handler(
+        user_id=request.auth.id,
+        code=payload.code,
+        new_password=payload.new_password,
+    )
+
+
+@router.delete("/account", auth=jwt_bearer_auth, response=MessageOutput)
+def delete_account(request):
+    return delete_account_handler(user_id=request.auth.id)

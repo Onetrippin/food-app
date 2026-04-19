@@ -1,5 +1,14 @@
+from __future__ import annotations
+
+import secrets
+from datetime import UTC, datetime, timedelta
+
+from django.conf import settings
+
+from app.internal.domain.entities.password_change_code import PasswordChangeCodeEntity
 from app.internal.domain.entities.token import AccessTokenEntity, TokenPairEntity
 from app.internal.domain.entities.user import UserEntity
+from app.internal.domain.interfaces.password_change_code import PasswordChangeCodeRepositoryInterface
 from app.internal.domain.interfaces.token import TokenServiceInterface
 from app.internal.domain.interfaces.user import UserRepositoryInterface
 
@@ -8,10 +17,36 @@ class UserService:
     def __init__(
         self,
         user_repository: UserRepositoryInterface,
+        password_change_code_repository: PasswordChangeCodeRepositoryInterface,
         token_service: TokenServiceInterface,
     ) -> None:
         self._user_repository = user_repository
+        self._password_change_code_repository = password_change_code_repository
         self._token_service = token_service
+
+    def register(self, username: str, email: str, password: str) -> TokenPairEntity:
+        normalized_email = email.strip().lower()
+        normalized_username = username.strip()
+
+        if not normalized_username:
+            raise ValueError("Username is required.")
+
+        if not normalized_email:
+            raise ValueError("Email is required.")
+
+        if self._user_repository.exists_by_username(normalized_username):
+            raise ValueError("Username is already taken.")
+
+        if self._user_repository.exists_by_email(normalized_email):
+            raise ValueError("Email is already taken.")
+
+        user = self._user_repository.create(
+            username=normalized_username,
+            email=normalized_email,
+            password=password,
+        )
+
+        return self._token_service.create_token_pair(user)
 
     def login(self, username: str, password: str) -> TokenPairEntity:
         user = self._user_repository.authenticate(username=username, password=password)
@@ -38,3 +73,64 @@ class UserService:
             raise ValueError("Invalid token.")
 
         return user
+
+    def request_password_change(self, user_id: int) -> PasswordChangeCodeEntity:
+        user = self._user_repository.get_by_id(user_id)
+
+        if user is None or not user.is_active:
+            raise ValueError("User not found.")
+
+        if not user.email:
+            raise ValueError("Email is required to change password.")
+
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        expires_at = datetime.now(tz=UTC) + timedelta(
+            minutes=settings.PASSWORD_CHANGE_CODE_TTL_MINUTES
+        )
+
+        self._password_change_code_repository.invalidate_for_user(user_id)
+        self._password_change_code_repository.create(
+            user_id=user_id,
+            code=code,
+            expires_at=expires_at,
+        )
+
+        return PasswordChangeCodeEntity(
+            user_id=user.id,
+            email=user.email,
+            code=code,
+            expires_at=expires_at,
+        )
+
+    def confirm_password_change(
+        self,
+        user_id: int,
+        code: str,
+        new_password: str,
+    ) -> None:
+        user = self._user_repository.get_by_id(user_id)
+
+        if user is None or not user.is_active:
+            raise ValueError("User not found.")
+
+        self._user_repository.validate_new_password(
+            user_id=user_id,
+            new_password=new_password,
+        )
+
+        if not self._password_change_code_repository.consume(user_id=user_id, code=code):
+            raise ValueError("Invalid or expired code.")
+
+        updated_user = self._user_repository.set_password(
+            user_id=user_id,
+            new_password=new_password,
+        )
+
+        if updated_user is None:
+            raise ValueError("User not found.")
+
+    def delete_account(self, user_id: int) -> None:
+        deleted = self._user_repository.delete(user_id)
+
+        if not deleted:
+            raise ValueError("User not found.")

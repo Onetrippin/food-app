@@ -2,10 +2,11 @@ from django.contrib import admin
 from django.urls import path
 from ninja import NinjaAPI
 
-from app.internal.presentation.routers import router as recipes_router
+from app.internal.presentation.routers import auth_router, recipe_router
 
 api = NinjaAPI(title="Food App API", version="0.1.0")
-api.add_router("/recipes", recipes_router)
+api.add_router("/auth", auth_router)
+api.add_router("/recipes", recipe_router)
 
 
 @api.get("/health")

@@ -13,6 +13,7 @@ django-ninja = "^1.4.1"
 psycopg = { version = "^3.2.9", extras = ["binary"] }
 uvicorn = { version = "^0.35.0", extras = ["standard"] }
 python-dotenv = "^1.1.0"
+PyJWT = "^2.10.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.13"
