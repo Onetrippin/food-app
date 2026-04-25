@@ -23,6 +23,8 @@ If you open the project through another host or port in development, add that or
 - `POST /api/auth/password/change/confirm` accepts the code and the new password
 - `DELETE /api/auth/account` deletes the authenticated account
 - `GET /api/recipes/` also requires `Authorization: Bearer <access_token>`
+- `GET /api/recipes/{recipe_id}` returns a specific recipe
+- `GET /api/recipes/search?q=...` searches recipes by title and description
 
 For development, the default email backend writes outgoing messages to container logs. To send real emails, configure SMTP variables in `.env`.
 

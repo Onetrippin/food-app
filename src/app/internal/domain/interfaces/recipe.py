@@ -8,3 +8,9 @@ from app.internal.domain.entities.recipe import RecipeEntity
 class RecipeRepositoryInterface(Protocol):
     def list(self) -> list[RecipeEntity]:
         ...
+
+    def get_by_id(self, recipe_id: int) -> RecipeEntity | None:
+        ...
+
+    def search(self, query: str) -> list[RecipeEntity]:
+        ...
