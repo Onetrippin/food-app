@@ -26,11 +26,25 @@ def search_recipes_handler(query: str) -> list[dict[str, object]]:
     return [_serialize_recipe(recipe) for recipe in service.search_recipes(query=query)]
 
 
+def find_recipes_by_ingredients_handler(available_ingredients: list[str]) -> list[dict[str, object]]:
+    service = RecipeService(repository=DjangoRecipeRepository())
+
+    try:
+        recipes = service.find_recipes_by_ingredients(
+            available_ingredients=available_ingredients
+        )
+    except ValueError as error:
+        raise HttpError(400, str(error)) from error
+
+    return [_serialize_recipe(recipe) for recipe in recipes]
+
+
 def _serialize_recipe(recipe: RecipeEntity) -> dict[str, object]:
     return {
         "id": recipe.id,
         "title": recipe.title,
         "description": recipe.description,
+        "ingredients": recipe.ingredients or [],
         "created_at": recipe.created_at.isoformat() if recipe.created_at else None,
         "updated_at": recipe.updated_at.isoformat() if recipe.updated_at else None,
     }

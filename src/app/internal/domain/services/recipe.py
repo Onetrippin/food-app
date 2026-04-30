@@ -19,3 +19,17 @@ class RecipeService:
 
     def search_recipes(self, query: str) -> list[RecipeEntity]:
         return self._repository.search(query=query)
+
+    def find_recipes_by_ingredients(self, available_ingredients: list[str]) -> list[RecipeEntity]:
+        normalized_available_ingredients = [
+            ingredient.strip()
+            for ingredient in available_ingredients
+            if ingredient.strip()
+        ]
+
+        if not normalized_available_ingredients:
+            raise ValueError("At least one ingredient is required.")
+
+        return self._repository.find_by_ingredients(
+            available_ingredients=normalized_available_ingredients
+        )

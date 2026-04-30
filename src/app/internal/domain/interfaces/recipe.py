@@ -14,3 +14,6 @@ class RecipeRepositoryInterface(Protocol):
 
     def search(self, query: str) -> list[RecipeEntity]:
         ...
+
+    def find_by_ingredients(self, available_ingredients: list[str]) -> list[RecipeEntity]:
+        ...

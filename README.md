@@ -25,6 +25,7 @@ If you open the project through another host or port in development, add that or
 - `GET /api/recipes/` also requires `Authorization: Bearer <access_token>`
 - `GET /api/recipes/{recipe_id}` returns a specific recipe
 - `GET /api/recipes/search?q=...` searches recipes by title and description
+- `GET /api/recipes/search/by-ingredients?ingredients=egg,milk,butter` returns recipes that can be prepared from the provided ingredients
 
 For development, the default email backend writes outgoing messages to container logs. To send real emails, configure SMTP variables in `.env`.
 
