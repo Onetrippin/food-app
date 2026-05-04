@@ -9,6 +9,8 @@ class RecipeEntity:
     title: str
     description: str = ""
     ingredients: list[str] | None = None
+    author_id: int | None = None
+    author_username: str | None = None
     id: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

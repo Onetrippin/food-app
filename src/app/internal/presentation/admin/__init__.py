@@ -1,4 +1,4 @@
 from .password_change_code import PasswordChangeCodeAdmin
-from .recipe import RecipeAdmin
+from .recipe import RecipeAdmin, RecipeFavoriteAdmin
 
-__all__ = ["PasswordChangeCodeAdmin", "RecipeAdmin"]
+__all__ = ["PasswordChangeCodeAdmin", "RecipeAdmin", "RecipeFavoriteAdmin"]

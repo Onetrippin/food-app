@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from app.internal.data.models import RecipeIngredientModel, RecipeModel
+from app.internal.data.models import RecipeFavoriteModel, RecipeIngredientModel, RecipeModel
 
 
 class RecipeIngredientInline(admin.TabularInline):
@@ -10,7 +10,14 @@ class RecipeIngredientInline(admin.TabularInline):
 
 @admin.register(RecipeModel)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "created_at", "updated_at")
-    search_fields = ("title",)
+    list_display = ("id", "title", "author", "created_at", "updated_at")
+    search_fields = ("title", "author__username")
     readonly_fields = ("created_at", "updated_at")
     inlines = [RecipeIngredientInline]
+
+
+@admin.register(RecipeFavoriteModel)
+class RecipeFavoriteAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "recipe", "created_at")
+    search_fields = ("user__username", "recipe__title")
+    autocomplete_fields = ("user", "recipe")
