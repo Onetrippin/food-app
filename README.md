@@ -28,9 +28,13 @@ If you open the project through another host or port in development, add that or
 - `GET /api/recipes/search/by-ingredients?ingredients=egg,milk,butter` returns recipes that can be prepared from the provided ingredients
 - `POST /api/recipes/` creates a recipe for the authenticated user
 - `PUT /api/recipes/{recipe_id}` edits a recipe; only the author or staff can do that
+- `DELETE /api/recipes/{recipe_id}` deletes a recipe; only the author or staff can do that
 - `POST /api/recipes/{recipe_id}/favorite` adds a recipe to favorites
 - `DELETE /api/recipes/{recipe_id}/favorite` removes a recipe from favorites
+- `POST /api/recipes/{recipe_id}/like` adds a like to a published recipe
+- `DELETE /api/recipes/{recipe_id}/like` removes a like
 - `GET /api/recipes/favorites` returns the authenticated user's favorite recipes
+- `GET /api/recipes/analytics` returns analytics for the authenticated user's recipes
 
 For development, the default email backend writes outgoing messages to container logs. To send real emails, configure SMTP variables in `.env`.
 

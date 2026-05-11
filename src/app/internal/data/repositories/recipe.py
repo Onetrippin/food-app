@@ -1,26 +1,22 @@
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, F, Q
 
-from app.internal.data.models import RecipeFavoriteModel, RecipeIngredientModel, RecipeModel
+from app.internal.data.models import (
+    RecipeFavoriteModel,
+    RecipeIngredientModel,
+    RecipeLikeModel,
+    RecipeModel,
+)
 from app.internal.domain.entities.recipe import RecipeEntity
 
 
 class DjangoRecipeRepository:
     def list(self) -> list[RecipeEntity]:
-        recipes = (
-            RecipeModel.objects.select_related("author")
-            .prefetch_related("ingredients")
-            .all()
-        )
+        recipes = self._base_queryset().filter(is_published=True)
         return [self._build_entity(recipe) for recipe in recipes]
 
     def get_by_id(self, recipe_id: int) -> RecipeEntity | None:
-        recipe = (
-            RecipeModel.objects.select_related("author")
-            .prefetch_related("ingredients")
-            .filter(id=recipe_id)
-            .first()
-        )
+        recipe = self._base_queryset().filter(id=recipe_id).first()
 
         if recipe is None:
             return None
@@ -34,12 +30,12 @@ class DjangoRecipeRepository:
             return self.list()
 
         recipes = (
-            RecipeModel.objects.select_related("author")
+            self._base_queryset()
             .filter(
+                is_published=True,
                 Q(title__icontains=normalized_query)
                 | Q(description__icontains=normalized_query)
             )
-            .prefetch_related("ingredients")
         )
         return [self._build_entity(recipe) for recipe in recipes]
 
@@ -53,11 +49,7 @@ class DjangoRecipeRepository:
         if not normalized_available_ingredients:
             return []
 
-        recipes = (
-            RecipeModel.objects.select_related("author")
-            .prefetch_related("ingredients")
-            .all()
-        )
+        recipes = self._base_queryset().filter(is_published=True)
         matched_recipes: list[RecipeEntity] = []
 
         for recipe in recipes:
@@ -85,19 +77,16 @@ class DjangoRecipeRepository:
         title: str,
         description: str,
         ingredients: list[str],
+        is_published: bool,
     ) -> RecipeEntity:
         recipe = RecipeModel.objects.create(
             author_id=author_id,
             title=title,
             description=description,
+            is_published=is_published,
         )
         self._replace_ingredients(recipe=recipe, ingredients=ingredients)
-        recipe.refresh_from_db()
-        recipe = (
-            RecipeModel.objects.select_related("author")
-            .prefetch_related("ingredients")
-            .get(id=recipe.id)
-        )
+        recipe = self._base_queryset().get(id=recipe.id)
         return self._build_entity(recipe)
 
     @transaction.atomic
@@ -107,6 +96,7 @@ class DjangoRecipeRepository:
         title: str,
         description: str,
         ingredients: list[str],
+        is_published: bool,
     ) -> RecipeEntity | None:
         recipe = RecipeModel.objects.filter(id=recipe_id).first()
 
@@ -115,13 +105,10 @@ class DjangoRecipeRepository:
 
         recipe.title = title
         recipe.description = description
-        recipe.save(update_fields=["title", "description", "updated_at"])
+        recipe.is_published = is_published
+        recipe.save(update_fields=["title", "description", "is_published", "updated_at"])
         self._replace_ingredients(recipe=recipe, ingredients=ingredients)
-        recipe = (
-            RecipeModel.objects.select_related("author")
-            .prefetch_related("ingredients")
-            .get(id=recipe_id)
-        )
+        recipe = self._base_queryset().get(id=recipe_id)
         return self._build_entity(recipe)
 
     def add_to_favorites(self, user_id: int, recipe_id: int) -> None:
@@ -131,13 +118,28 @@ class DjangoRecipeRepository:
         RecipeFavoriteModel.objects.filter(user_id=user_id, recipe_id=recipe_id).delete()
 
     def list_favorites(self, user_id: int) -> list[RecipeEntity]:
-        favorite_recipes = (
-            RecipeModel.objects.select_related("author")
-            .prefetch_related("ingredients")
-            .filter(favorited_by_users__user_id=user_id)
-            .distinct()
+        favorite_recipes = self._base_queryset().filter(
+            favorited_by_users__user_id=user_id,
+            is_published=True,
         )
         return [self._build_entity(recipe) for recipe in favorite_recipes]
+
+    def add_like(self, user_id: int, recipe_id: int) -> None:
+        RecipeLikeModel.objects.get_or_create(user_id=user_id, recipe_id=recipe_id)
+
+    def remove_like(self, user_id: int, recipe_id: int) -> None:
+        RecipeLikeModel.objects.filter(user_id=user_id, recipe_id=recipe_id).delete()
+
+    def increment_views(self, recipe_id: int) -> None:
+        RecipeModel.objects.filter(id=recipe_id).update(views_count=F("views_count") + 1)
+
+    def delete(self, recipe_id: int) -> bool:
+        deleted_count, _ = RecipeModel.objects.filter(id=recipe_id).delete()
+        return deleted_count > 0
+
+    def list_by_author(self, author_id: int) -> list[RecipeEntity]:
+        recipes = self._base_queryset().filter(author_id=author_id)
+        return [self._build_entity(recipe) for recipe in recipes]
 
     @staticmethod
     def _build_entity(recipe: RecipeModel) -> RecipeEntity:
@@ -148,6 +150,10 @@ class DjangoRecipeRepository:
             ingredients=[ingredient.name for ingredient in recipe.ingredients.all()],
             author_id=recipe.author_id,
             author_username=recipe.author.username if recipe.author else None,
+            is_published=recipe.is_published,
+            views_count=recipe.views_count,
+            likes_count=getattr(recipe, "likes_count", 0),
+            favorites_count=getattr(recipe, "favorites_count", 0),
             created_at=recipe.created_at,
             updated_at=recipe.updated_at,
         )
@@ -160,4 +166,16 @@ class DjangoRecipeRepository:
                 RecipeIngredientModel(recipe=recipe, name=ingredient)
                 for ingredient in ingredients
             ]
+        )
+
+    @staticmethod
+    def _base_queryset():
+        return (
+            RecipeModel.objects.select_related("author")
+            .prefetch_related("ingredients")
+            .annotate(
+                likes_count=Count("liked_by_users", distinct=True),
+                favorites_count=Count("favorited_by_users", distinct=True),
+            )
+            .distinct()
         )

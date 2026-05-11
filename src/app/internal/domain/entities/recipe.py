@@ -11,6 +11,10 @@ class RecipeEntity:
     ingredients: list[str] | None = None
     author_id: int | None = None
     author_username: str | None = None
+    is_published: bool = True
+    views_count: int = 0
+    likes_count: int = 0
+    favorites_count: int = 0
     id: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

@@ -24,6 +24,7 @@ class RecipeRepositoryInterface(Protocol):
         title: str,
         description: str,
         ingredients: list[str],
+        is_published: bool,
     ) -> RecipeEntity:
         ...
 
@@ -33,6 +34,7 @@ class RecipeRepositoryInterface(Protocol):
         title: str,
         description: str,
         ingredients: list[str],
+        is_published: bool,
     ) -> RecipeEntity | None:
         ...
 
@@ -43,4 +45,19 @@ class RecipeRepositoryInterface(Protocol):
         ...
 
     def list_favorites(self, user_id: int) -> list[RecipeEntity]:
+        ...
+
+    def add_like(self, user_id: int, recipe_id: int) -> None:
+        ...
+
+    def remove_like(self, user_id: int, recipe_id: int) -> None:
+        ...
+
+    def increment_views(self, recipe_id: int) -> None:
+        ...
+
+    def delete(self, recipe_id: int) -> bool:
+        ...
+
+    def list_by_author(self, author_id: int) -> list[RecipeEntity]:
         ...
