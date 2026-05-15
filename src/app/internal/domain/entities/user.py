@@ -8,3 +8,5 @@ class UserEntity:
     email: str
     is_active: bool
     is_staff: bool
+    can_publish_recipes: bool = False
+    author_application_status: str | None = None

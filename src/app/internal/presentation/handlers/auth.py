@@ -3,8 +3,10 @@ from django.core.mail import send_mail
 from ninja.errors import HttpError
 from ninja.security import HttpBearer
 
+from app.internal.data.repositories.author_application import DjangoAuthorApplicationRepository
 from app.internal.data.repositories.password_change_code import DjangoPasswordChangeCodeRepository
 from app.internal.data.repositories.user import DjangoUserRepository
+from app.internal.domain.entities.author_application import AuthorApplicationEntity
 from app.internal.domain.entities.token import AccessTokenEntity, TokenPairEntity
 from app.internal.domain.entities.user import UserEntity
 from app.internal.domain.services.token import JWTTokenService
@@ -95,6 +97,24 @@ def delete_account_handler(user_id: int) -> dict[str, str]:
     return {"detail": "Account deleted successfully."}
 
 
+def submit_author_application_handler(user_id: int, motivation: str) -> AuthorApplicationEntity:
+    service = _build_user_service()
+
+    try:
+        return service.submit_author_application(user_id=user_id, motivation=motivation)
+    except ValueError as error:
+        raise HttpError(400, str(error)) from error
+
+
+def get_author_application_handler(user_id: int) -> AuthorApplicationEntity | None:
+    service = _build_user_service()
+
+    try:
+        return service.get_author_application(user_id=user_id)
+    except ValueError as error:
+        raise HttpError(400, str(error)) from error
+
+
 class JWTBearerAuth(HttpBearer):
     def authenticate(self, request, token: str) -> UserEntity:
         return get_current_user_handler(access_token=token)
@@ -103,6 +123,7 @@ class JWTBearerAuth(HttpBearer):
 def _build_user_service() -> UserService:
     return UserService(
         user_repository=DjangoUserRepository(),
+        author_application_repository=DjangoAuthorApplicationRepository(),
         password_change_code_repository=DjangoPasswordChangeCodeRepository(),
         token_service=JWTTokenService(),
     )

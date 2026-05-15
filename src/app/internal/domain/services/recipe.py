@@ -57,6 +57,8 @@ class RecipeService:
     def create_recipe(
         self,
         author_id: int,
+        actor_is_staff: bool,
+        actor_can_publish_recipes: bool,
         title: str,
         description: str,
         ingredients: list[str],
@@ -68,6 +70,11 @@ class RecipeService:
             raise ValueError("Title is required.")
 
         normalized_ingredients = self._normalize_ingredients(ingredients)
+        self._validate_publish_permission(
+            actor_is_staff=actor_is_staff,
+            actor_can_publish_recipes=actor_can_publish_recipes,
+            is_published=is_published,
+        )
 
         return self._repository.create(
             author_id=author_id,
@@ -81,6 +88,7 @@ class RecipeService:
         self,
         actor_id: int,
         actor_is_staff: bool,
+        actor_can_publish_recipes: bool,
         recipe_id: int,
         title: str,
         description: str,
@@ -98,6 +106,11 @@ class RecipeService:
             raise ValueError("Title is required.")
 
         normalized_ingredients = self._normalize_ingredients(ingredients)
+        self._validate_publish_permission(
+            actor_is_staff=actor_is_staff,
+            actor_can_publish_recipes=actor_can_publish_recipes,
+            is_published=is_published,
+        )
         updated_recipe = self._repository.update(
             recipe_id=recipe_id,
             title=normalized_title,
@@ -161,6 +174,15 @@ class RecipeService:
             total_favorites=sum(recipe.favorites_count for recipe in recipes),
             recipes=recipes,
         )
+
+    @staticmethod
+    def _validate_publish_permission(
+        actor_is_staff: bool,
+        actor_can_publish_recipes: bool,
+        is_published: bool,
+    ) -> None:
+        if is_published and not actor_is_staff and not actor_can_publish_recipes:
+            raise PermissionError("You do not have rights to publish recipes yet.")
 
     @staticmethod
     def _normalize_ingredients(ingredients: list[str]) -> list[str]:

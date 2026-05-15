@@ -1,3 +1,4 @@
+from .author_application import AuthorApplicationEntity
 from .password_change_code import PasswordChangeCodeEntity
 from .recipe import RecipeEntity
 from .recipe_analytics import RecipeAnalyticsEntity
@@ -6,6 +7,7 @@ from .user import UserEntity
 
 __all__ = [
     "AccessTokenEntity",
+    "AuthorApplicationEntity",
     "PasswordChangeCodeEntity",
     "RecipeEntity",
     "RecipeAnalyticsEntity",

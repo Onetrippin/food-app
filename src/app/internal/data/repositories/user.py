@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 
+from app.internal.data.models import AuthorApplicationModel
 from app.internal.domain.entities.user import UserEntity
 
 
@@ -18,7 +19,7 @@ class DjangoUserRepository:
         user_model = get_user_model()
 
         try:
-            user = user_model.objects.get(id=user_id)
+            user = user_model.objects.select_related("author_application").get(id=user_id)
         except user_model.DoesNotExist:
             return None
 
@@ -70,12 +71,21 @@ class DjangoUserRepository:
 
     @staticmethod
     def _build_entity(user) -> UserEntity:
+        author_application = DjangoUserRepository._get_author_application(user)
+        author_application_status = author_application.status if author_application else None
+        can_publish_recipes = bool(
+            user.is_staff
+            or author_application_status == "approved"
+        )
+
         return UserEntity(
             id=user.id,
             username=user.username,
             email=user.email,
             is_active=user.is_active,
             is_staff=user.is_staff,
+            can_publish_recipes=can_publish_recipes,
+            author_application_status=author_application_status,
         )
 
     @staticmethod
@@ -84,3 +94,10 @@ class DjangoUserRepository:
             validate_password(password, user=user)
         except DjangoValidationError as error:
             raise ValueError(" ".join(error.messages)) from error
+
+    @staticmethod
+    def _get_author_application(user) -> AuthorApplicationModel | None:
+        try:
+            return user.author_application
+        except AuthorApplicationModel.DoesNotExist:
+            return None

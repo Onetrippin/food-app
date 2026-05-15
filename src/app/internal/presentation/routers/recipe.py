@@ -94,6 +94,8 @@ def get_author_recipe_analytics(request):
 def create_recipe(request, payload: RecipeInput):
     return create_recipe_handler(
         author_id=request.auth.id,
+        actor_is_staff=request.auth.is_staff,
+        actor_can_publish_recipes=request.auth.can_publish_recipes,
         title=payload.title,
         description=payload.description,
         ingredients=payload.ingredients,
@@ -106,6 +108,7 @@ def update_recipe(request, recipe_id: int, payload: RecipeInput):
     return update_recipe_handler(
         actor_id=request.auth.id,
         actor_is_staff=request.auth.is_staff,
+        actor_can_publish_recipes=request.auth.can_publish_recipes,
         recipe_id=recipe_id,
         title=payload.title,
         description=payload.description,

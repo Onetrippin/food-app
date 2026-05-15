@@ -5,9 +5,11 @@ from datetime import UTC, datetime, timedelta
 
 from django.conf import settings
 
+from app.internal.domain.entities.author_application import AuthorApplicationEntity
 from app.internal.domain.entities.password_change_code import PasswordChangeCodeEntity
 from app.internal.domain.entities.token import AccessTokenEntity, TokenPairEntity
 from app.internal.domain.entities.user import UserEntity
+from app.internal.domain.interfaces.author_application import AuthorApplicationRepositoryInterface
 from app.internal.domain.interfaces.password_change_code import PasswordChangeCodeRepositoryInterface
 from app.internal.domain.interfaces.token import TokenServiceInterface
 from app.internal.domain.interfaces.user import UserRepositoryInterface
@@ -17,10 +19,12 @@ class UserService:
     def __init__(
         self,
         user_repository: UserRepositoryInterface,
+        author_application_repository: AuthorApplicationRepositoryInterface,
         password_change_code_repository: PasswordChangeCodeRepositoryInterface,
         token_service: TokenServiceInterface,
     ) -> None:
         self._user_repository = user_repository
+        self._author_application_repository = author_application_repository
         self._password_change_code_repository = password_change_code_repository
         self._token_service = token_service
 
@@ -134,3 +138,27 @@ class UserService:
 
         if not deleted:
             raise ValueError("User not found.")
+
+    def submit_author_application(self, user_id: int, motivation: str) -> AuthorApplicationEntity:
+        user = self._user_repository.get_by_id(user_id)
+
+        if user is None or not user.is_active:
+            raise ValueError("User not found.")
+
+        normalized_motivation = motivation.strip()
+
+        if not normalized_motivation:
+            raise ValueError("Motivation is required.")
+
+        return self._author_application_repository.submit(
+            user_id=user_id,
+            motivation=normalized_motivation,
+        )
+
+    def get_author_application(self, user_id: int) -> AuthorApplicationEntity | None:
+        user = self._user_repository.get_by_id(user_id)
+
+        if user is None or not user.is_active:
+            raise ValueError("User not found.")
+
+        return self._author_application_repository.get_by_user_id(user_id=user_id)

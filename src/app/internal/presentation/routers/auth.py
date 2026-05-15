@@ -4,9 +4,11 @@ from app.internal.presentation.handlers.auth import (
     JWTBearerAuth,
     confirm_password_change_handler,
     delete_account_handler,
+    get_author_application_handler,
     login_handler,
     refresh_token_handler,
     register_handler,
+    submit_author_application_handler,
     request_password_change_handler,
 )
 
@@ -46,6 +48,8 @@ class CurrentUserOutput(Schema):
     email: str
     is_active: bool
     is_staff: bool
+    can_publish_recipes: bool
+    author_application_status: str | None
 
 
 class PasswordChangeConfirmInput(Schema):
@@ -60,6 +64,24 @@ class MessageOutput(Schema):
 class PasswordChangeRequestOutput(Schema):
     detail: str
     expires_at: str
+
+
+class AuthorApplicationInput(Schema):
+    motivation: str
+
+
+class AuthorApplicationOutput(Schema):
+    user_id: int
+    motivation: str
+    status: str
+    review_comment: str
+    reviewed_at: str | None
+    created_at: str | None
+    updated_at: str | None
+
+
+class AuthorApplicationStatusOutput(Schema):
+    application: AuthorApplicationOutput | None
 
 
 @router.post("/register", response=TokenPairOutput)
@@ -104,6 +126,8 @@ def me(request):
         "email": user.email,
         "is_active": user.is_active,
         "is_staff": user.is_staff,
+        "can_publish_recipes": user.can_publish_recipes,
+        "author_application_status": user.author_application_status,
     }
 
 
@@ -124,3 +148,40 @@ def confirm_password_change(request, payload: PasswordChangeConfirmInput):
 @router.delete("/account", auth=jwt_bearer_auth, response=MessageOutput)
 def delete_account(request):
     return delete_account_handler(user_id=request.auth.id)
+
+
+@router.post("/author-application", auth=jwt_bearer_auth, response=AuthorApplicationOutput)
+def submit_author_application(request, payload: AuthorApplicationInput):
+    application = submit_author_application_handler(
+        user_id=request.auth.id,
+        motivation=payload.motivation,
+    )
+    return {
+        "user_id": application.user_id,
+        "motivation": application.motivation,
+        "status": application.status,
+        "review_comment": application.review_comment,
+        "reviewed_at": application.reviewed_at.isoformat() if application.reviewed_at else None,
+        "created_at": application.created_at.isoformat() if application.created_at else None,
+        "updated_at": application.updated_at.isoformat() if application.updated_at else None,
+    }
+
+
+@router.get("/author-application", auth=jwt_bearer_auth, response=AuthorApplicationStatusOutput)
+def get_author_application(request):
+    application = get_author_application_handler(user_id=request.auth.id)
+
+    if application is None:
+        return {"application": None}
+
+    return {
+        "application": {
+            "user_id": application.user_id,
+            "motivation": application.motivation,
+            "status": application.status,
+            "review_comment": application.review_comment,
+            "reviewed_at": application.reviewed_at.isoformat() if application.reviewed_at else None,
+            "created_at": application.created_at.isoformat() if application.created_at else None,
+            "updated_at": application.updated_at.isoformat() if application.updated_at else None,
+        }
+    }

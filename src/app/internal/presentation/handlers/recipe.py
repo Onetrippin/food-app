@@ -62,6 +62,8 @@ def find_recipes_by_ingredients_handler(available_ingredients: list[str]) -> lis
 
 def create_recipe_handler(
     author_id: int,
+    actor_is_staff: bool,
+    actor_can_publish_recipes: bool,
     title: str,
     description: str,
     ingredients: list[str],
@@ -72,11 +74,15 @@ def create_recipe_handler(
     try:
         recipe = service.create_recipe(
             author_id=author_id,
+            actor_is_staff=actor_is_staff,
+            actor_can_publish_recipes=actor_can_publish_recipes,
             title=title,
             description=description,
             ingredients=ingredients,
             is_published=is_published,
         )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
     except ValueError as error:
         raise HttpError(400, str(error)) from error
 
@@ -86,6 +92,7 @@ def create_recipe_handler(
 def update_recipe_handler(
     actor_id: int,
     actor_is_staff: bool,
+    actor_can_publish_recipes: bool,
     recipe_id: int,
     title: str,
     description: str,
@@ -98,6 +105,7 @@ def update_recipe_handler(
         recipe = service.update_recipe(
             actor_id=actor_id,
             actor_is_staff=actor_is_staff,
+            actor_can_publish_recipes=actor_can_publish_recipes,
             recipe_id=recipe_id,
             title=title,
             description=description,

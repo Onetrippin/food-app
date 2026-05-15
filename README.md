@@ -22,11 +22,14 @@ If you open the project through another host or port in development, add that or
 - `POST /api/auth/password/change/request` sends a code to the authenticated user's email
 - `POST /api/auth/password/change/confirm` accepts the code and the new password
 - `DELETE /api/auth/account` deletes the authenticated account
+- `POST /api/auth/author-application` submits an application for author publishing rights
+- `GET /api/auth/author-application` returns the current user's author application status
 - `GET /api/recipes/` also requires `Authorization: Bearer <access_token>`
 - `GET /api/recipes/{recipe_id}` returns a specific recipe
 - `GET /api/recipes/search?q=...` searches recipes by title and description
 - `GET /api/recipes/search/by-ingredients?ingredients=egg,milk,butter` returns recipes that can be prepared from the provided ingredients
 - `POST /api/recipes/` creates a recipe for the authenticated user
+- recipe publication is unavailable by default; `is_published=true` works only for staff or users with an approved author application
 - `PUT /api/recipes/{recipe_id}` edits a recipe; only the author or staff can do that
 - `DELETE /api/recipes/{recipe_id}` deletes a recipe; only the author or staff can do that
 - `POST /api/recipes/{recipe_id}/favorite` adds a recipe to favorites
