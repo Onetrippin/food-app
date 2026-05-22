@@ -30,6 +30,9 @@ class RecipeOutput(Schema):
     ingredients: list[str]
     author_id: int | None
     author_username: str | None
+    price_amount: str
+    price_currency: str
+    has_access: bool
     is_published: bool
     views_count: int
     likes_count: int
@@ -42,6 +45,8 @@ class RecipeInput(Schema):
     title: str
     description: str = ""
     ingredients: list[str] = Field(default_factory=list)
+    price_amount: str = "0.00"
+    price_currency: str = "RUB"
     is_published: bool = True
 
 
@@ -60,12 +65,16 @@ class RecipeAnalyticsOutput(Schema):
 
 @router.get("/", auth=jwt_bearer_auth, response=list[RecipeOutput])
 def list_recipes(request):
-    return list_recipes_handler()
+    return list_recipes_handler(user_id=request.auth.id, user_is_staff=request.auth.is_staff)
 
 
 @router.get("/search", auth=jwt_bearer_auth, response=list[RecipeOutput])
 def search_recipes(request, q: str = Query(...)):
-    return search_recipes_handler(query=q)
+    return search_recipes_handler(
+        query=q,
+        user_id=request.auth.id,
+        user_is_staff=request.auth.is_staff,
+    )
 
 
 @router.get("/search/by-ingredients", auth=jwt_bearer_auth, response=list[RecipeOutput])
@@ -76,7 +85,9 @@ def find_recipes_by_ingredients(request, ingredients: str = Query(...)):
         if ingredient.strip()
     ]
     return find_recipes_by_ingredients_handler(
-        available_ingredients=available_ingredients
+        available_ingredients=available_ingredients,
+        user_id=request.auth.id,
+        user_is_staff=request.auth.is_staff,
     )
 
 
@@ -99,6 +110,8 @@ def create_recipe(request, payload: RecipeInput):
         title=payload.title,
         description=payload.description,
         ingredients=payload.ingredients,
+        price_amount=payload.price_amount,
+        price_currency=payload.price_currency,
         is_published=payload.is_published,
     )
 
@@ -113,6 +126,8 @@ def update_recipe(request, recipe_id: int, payload: RecipeInput):
         title=payload.title,
         description=payload.description,
         ingredients=payload.ingredients,
+        price_amount=payload.price_amount,
+        price_currency=payload.price_currency,
         is_published=payload.is_published,
     )
 

@@ -15,7 +15,17 @@ class RecipeIngredientInline(admin.TabularInline):
 
 @admin.register(RecipeModel)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "author", "is_published", "views_count", "created_at", "updated_at")
+    list_display = (
+        "id",
+        "title",
+        "author",
+        "price_amount",
+        "price_currency",
+        "is_published",
+        "views_count",
+        "created_at",
+        "updated_at",
+    )
     search_fields = ("title", "author__username")
     readonly_fields = ("views_count", "created_at", "updated_at")
     inlines = [RecipeIngredientInline]

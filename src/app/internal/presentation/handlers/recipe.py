@@ -1,24 +1,34 @@
 from ninja.errors import HttpError
 
+from app.internal.data.repositories.payment import DjangoPaymentRepository
 from app.internal.data.repositories.recipe import DjangoRecipeRepository
 from app.internal.domain.entities.recipe import RecipeEntity
 from app.internal.domain.services.recipe import RecipeService
 
 
-def list_recipes_handler() -> list[dict[str, object]]:
-    service = RecipeService(repository=DjangoRecipeRepository())
-    return [_serialize_recipe(recipe) for recipe in service.list_recipes()]
+def list_recipes_handler(user_id: int, user_is_staff: bool) -> list[dict[str, object]]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+    return [
+        _serialize_recipe(recipe, user_id=user_id, user_is_staff=user_is_staff)
+        for recipe in service.list_recipes()
+    ]
 
 
 def get_recipe_handler(recipe_id: int) -> dict[str, object]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         recipe = service.get_recipe(recipe_id=recipe_id)
     except ValueError as error:
         raise HttpError(404, str(error)) from error
 
-    return _serialize_recipe(recipe)
+    return _serialize_recipe(recipe, user_id=recipe.author_id or 0, user_is_staff=False)
 
 
 def get_recipe_for_view_handler(
@@ -26,7 +36,10 @@ def get_recipe_for_view_handler(
     actor_id: int,
     actor_is_staff: bool,
 ) -> dict[str, object]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         recipe = service.get_recipe_for_view(
@@ -35,20 +48,34 @@ def get_recipe_for_view_handler(
             actor_is_staff=actor_is_staff,
         )
     except PermissionError as error:
-        raise HttpError(403, str(error)) from error
+        status_code = 402 if "purchase" in str(error).lower() or "subscription" in str(error).lower() else 403
+        raise HttpError(status_code, str(error)) from error
     except ValueError as error:
         raise HttpError(404, str(error)) from error
 
-    return _serialize_recipe(recipe)
+    return _serialize_recipe(recipe, user_id=actor_id, user_is_staff=actor_is_staff)
 
 
-def search_recipes_handler(query: str) -> list[dict[str, object]]:
-    service = RecipeService(repository=DjangoRecipeRepository())
-    return [_serialize_recipe(recipe) for recipe in service.search_recipes(query=query)]
+def search_recipes_handler(query: str, user_id: int, user_is_staff: bool) -> list[dict[str, object]]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+    return [
+        _serialize_recipe(recipe, user_id=user_id, user_is_staff=user_is_staff)
+        for recipe in service.search_recipes(query=query)
+    ]
 
 
-def find_recipes_by_ingredients_handler(available_ingredients: list[str]) -> list[dict[str, object]]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+def find_recipes_by_ingredients_handler(
+    available_ingredients: list[str],
+    user_id: int,
+    user_is_staff: bool,
+) -> list[dict[str, object]]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         recipes = service.find_recipes_by_ingredients(
@@ -57,7 +84,10 @@ def find_recipes_by_ingredients_handler(available_ingredients: list[str]) -> lis
     except ValueError as error:
         raise HttpError(400, str(error)) from error
 
-    return [_serialize_recipe(recipe) for recipe in recipes]
+    return [
+        _serialize_recipe(recipe, user_id=user_id, user_is_staff=user_is_staff)
+        for recipe in recipes
+    ]
 
 
 def create_recipe_handler(
@@ -67,9 +97,14 @@ def create_recipe_handler(
     title: str,
     description: str,
     ingredients: list[str],
+    price_amount: str,
+    price_currency: str,
     is_published: bool,
 ) -> dict[str, object]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         recipe = service.create_recipe(
@@ -79,6 +114,8 @@ def create_recipe_handler(
             title=title,
             description=description,
             ingredients=ingredients,
+            price_amount=price_amount,
+            price_currency=price_currency,
             is_published=is_published,
         )
     except PermissionError as error:
@@ -86,7 +123,7 @@ def create_recipe_handler(
     except ValueError as error:
         raise HttpError(400, str(error)) from error
 
-    return _serialize_recipe(recipe)
+    return _serialize_recipe(recipe, user_id=author_id, user_is_staff=actor_is_staff)
 
 
 def update_recipe_handler(
@@ -97,9 +134,14 @@ def update_recipe_handler(
     title: str,
     description: str,
     ingredients: list[str],
+    price_amount: str,
+    price_currency: str,
     is_published: bool,
 ) -> dict[str, object]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         recipe = service.update_recipe(
@@ -110,6 +152,8 @@ def update_recipe_handler(
             title=title,
             description=description,
             ingredients=ingredients,
+            price_amount=price_amount,
+            price_currency=price_currency,
             is_published=is_published,
         )
     except PermissionError as error:
@@ -118,11 +162,14 @@ def update_recipe_handler(
         status_code = 404 if str(error) == "Recipe not found." else 400
         raise HttpError(status_code, str(error)) from error
 
-    return _serialize_recipe(recipe)
+    return _serialize_recipe(recipe, user_id=actor_id, user_is_staff=actor_is_staff)
 
 
 def add_recipe_to_favorites_handler(user_id: int, recipe_id: int) -> dict[str, str]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         service.add_recipe_to_favorites(user_id=user_id, recipe_id=recipe_id)
@@ -133,7 +180,10 @@ def add_recipe_to_favorites_handler(user_id: int, recipe_id: int) -> dict[str, s
 
 
 def remove_recipe_from_favorites_handler(user_id: int, recipe_id: int) -> dict[str, str]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         service.remove_recipe_from_favorites(user_id=user_id, recipe_id=recipe_id)
@@ -144,12 +194,21 @@ def remove_recipe_from_favorites_handler(user_id: int, recipe_id: int) -> dict[s
 
 
 def list_favorite_recipes_handler(user_id: int) -> list[dict[str, object]]:
-    service = RecipeService(repository=DjangoRecipeRepository())
-    return [_serialize_recipe(recipe) for recipe in service.list_favorite_recipes(user_id=user_id)]
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+    return [
+        _serialize_recipe(recipe, user_id=user_id, user_is_staff=False)
+        for recipe in service.list_favorite_recipes(user_id=user_id)
+    ]
 
 
 def add_recipe_like_handler(user_id: int, recipe_id: int) -> dict[str, str]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         service.add_recipe_like(user_id=user_id, recipe_id=recipe_id)
@@ -161,7 +220,10 @@ def add_recipe_like_handler(user_id: int, recipe_id: int) -> dict[str, str]:
 
 
 def remove_recipe_like_handler(user_id: int, recipe_id: int) -> dict[str, str]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         service.remove_recipe_like(user_id=user_id, recipe_id=recipe_id)
@@ -172,7 +234,10 @@ def remove_recipe_like_handler(user_id: int, recipe_id: int) -> dict[str, str]:
 
 
 def delete_recipe_handler(actor_id: int, actor_is_staff: bool, recipe_id: int) -> dict[str, str]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
 
     try:
         service.delete_recipe(
@@ -189,7 +254,10 @@ def delete_recipe_handler(actor_id: int, actor_is_staff: bool, recipe_id: int) -
 
 
 def get_author_recipe_analytics_handler(author_id: int) -> dict[str, object]:
-    service = RecipeService(repository=DjangoRecipeRepository())
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
     analytics = service.get_author_analytics(author_id=author_id)
 
     return {
@@ -198,18 +266,32 @@ def get_author_recipe_analytics_handler(author_id: int) -> dict[str, object]:
         "total_views": analytics.total_views,
         "total_likes": analytics.total_likes,
         "total_favorites": analytics.total_favorites,
-        "recipes": [_serialize_recipe(recipe) for recipe in analytics.recipes],
+        "recipes": [
+            _serialize_recipe(recipe, user_id=author_id, user_is_staff=False)
+            for recipe in analytics.recipes
+        ],
     }
 
 
-def _serialize_recipe(recipe: RecipeEntity) -> dict[str, object]:
+def _serialize_recipe(recipe: RecipeEntity, user_id: int, user_is_staff: bool) -> dict[str, object]:
+    payment_repository = DjangoPaymentRepository()
+    has_access = _has_recipe_access(
+        recipe=recipe,
+        user_id=user_id,
+        user_is_staff=user_is_staff,
+        payment_repository=payment_repository,
+    )
+
     return {
         "id": recipe.id,
         "title": recipe.title,
-        "description": recipe.description,
-        "ingredients": recipe.ingredients or [],
+        "description": recipe.description if has_access else "",
+        "ingredients": recipe.ingredients or [] if has_access else [],
         "author_id": recipe.author_id,
         "author_username": recipe.author_username,
+        "price_amount": f"{recipe.price_amount:.2f}",
+        "price_currency": recipe.price_currency,
+        "has_access": has_access,
         "is_published": recipe.is_published,
         "views_count": recipe.views_count,
         "likes_count": recipe.likes_count,
@@ -217,3 +299,25 @@ def _serialize_recipe(recipe: RecipeEntity) -> dict[str, object]:
         "created_at": recipe.created_at.isoformat() if recipe.created_at else None,
         "updated_at": recipe.updated_at.isoformat() if recipe.updated_at else None,
     }
+
+
+def _has_recipe_access(
+    recipe: RecipeEntity,
+    user_id: int,
+    user_is_staff: bool,
+    payment_repository: DjangoPaymentRepository,
+) -> bool:
+    if recipe.price_amount <= 0:
+        return True
+
+    if user_is_staff or recipe.author_id == user_id:
+        return True
+
+    if user_id <= 0 or recipe.id is None:
+        return False
+
+    return payment_repository.has_recipe_access(
+        user_id=user_id,
+        recipe_id=recipe.id,
+        author_id=recipe.author_id,
+    )

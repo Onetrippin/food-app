@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import Count, F, Q
+from decimal import Decimal
 
 from app.internal.data.models import (
     RecipeFavoriteModel,
@@ -77,12 +78,16 @@ class DjangoRecipeRepository:
         title: str,
         description: str,
         ingredients: list[str],
+        price_amount: Decimal,
+        price_currency: str,
         is_published: bool,
     ) -> RecipeEntity:
         recipe = RecipeModel.objects.create(
             author_id=author_id,
             title=title,
             description=description,
+            price_amount=price_amount,
+            price_currency=price_currency,
             is_published=is_published,
         )
         self._replace_ingredients(recipe=recipe, ingredients=ingredients)
@@ -96,6 +101,8 @@ class DjangoRecipeRepository:
         title: str,
         description: str,
         ingredients: list[str],
+        price_amount: Decimal,
+        price_currency: str,
         is_published: bool,
     ) -> RecipeEntity | None:
         recipe = RecipeModel.objects.filter(id=recipe_id).first()
@@ -105,8 +112,19 @@ class DjangoRecipeRepository:
 
         recipe.title = title
         recipe.description = description
+        recipe.price_amount = price_amount
+        recipe.price_currency = price_currency
         recipe.is_published = is_published
-        recipe.save(update_fields=["title", "description", "is_published", "updated_at"])
+        recipe.save(
+            update_fields=[
+                "title",
+                "description",
+                "price_amount",
+                "price_currency",
+                "is_published",
+                "updated_at",
+            ]
+        )
         self._replace_ingredients(recipe=recipe, ingredients=ingredients)
         recipe = self._base_queryset().get(id=recipe_id)
         return self._build_entity(recipe)
@@ -150,6 +168,8 @@ class DjangoRecipeRepository:
             ingredients=[ingredient.name for ingredient in recipe.ingredients.all()],
             author_id=recipe.author_id,
             author_username=recipe.author.username if recipe.author else None,
+            price_amount=recipe.price_amount,
+            price_currency=recipe.price_currency,
             is_published=recipe.is_published,
             views_count=recipe.views_count,
             likes_count=getattr(recipe, "likes_count", 0),

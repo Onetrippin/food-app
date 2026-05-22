@@ -102,5 +102,15 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@food-app.local")
+PAYMENT_DEFAULT_CURRENCY = os.getenv("PAYMENT_DEFAULT_CURRENCY", "RUB")
+AUTHOR_SUBSCRIPTION_DURATION_DAYS = int(
+    os.getenv("AUTHOR_SUBSCRIPTION_DURATION_DAYS", "30")
+)
+YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID", "")
+YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY", "")
+YOOKASSA_RETURN_URL = os.getenv(
+    "YOOKASSA_RETURN_URL",
+    "http://localhost:8080/payment-return",
+)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

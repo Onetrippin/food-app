@@ -10,6 +10,7 @@ from app.internal.presentation.handlers.auth import (
     register_handler,
     submit_author_application_handler,
     request_password_change_handler,
+    update_author_profile_handler,
 )
 
 router = Router(tags=["auth"])
@@ -74,6 +75,9 @@ class AuthorApplicationOutput(Schema):
     user_id: int
     motivation: str
     status: str
+    subscription_price: str
+    subscription_currency: str
+    is_subscription_enabled: bool
     review_comment: str
     reviewed_at: str | None
     created_at: str | None
@@ -82,6 +86,12 @@ class AuthorApplicationOutput(Schema):
 
 class AuthorApplicationStatusOutput(Schema):
     application: AuthorApplicationOutput | None
+
+
+class AuthorProfileInput(Schema):
+    subscription_price: str
+    subscription_currency: str = "RUB"
+    is_subscription_enabled: bool
 
 
 @router.post("/register", response=TokenPairOutput)
@@ -160,6 +170,9 @@ def submit_author_application(request, payload: AuthorApplicationInput):
         "user_id": application.user_id,
         "motivation": application.motivation,
         "status": application.status,
+        "subscription_price": f"{application.subscription_price:.2f}",
+        "subscription_currency": application.subscription_currency,
+        "is_subscription_enabled": application.is_subscription_enabled,
         "review_comment": application.review_comment,
         "reviewed_at": application.reviewed_at.isoformat() if application.reviewed_at else None,
         "created_at": application.created_at.isoformat() if application.created_at else None,
@@ -179,9 +192,34 @@ def get_author_application(request):
             "user_id": application.user_id,
             "motivation": application.motivation,
             "status": application.status,
+            "subscription_price": f"{application.subscription_price:.2f}",
+            "subscription_currency": application.subscription_currency,
+            "is_subscription_enabled": application.is_subscription_enabled,
             "review_comment": application.review_comment,
             "reviewed_at": application.reviewed_at.isoformat() if application.reviewed_at else None,
             "created_at": application.created_at.isoformat() if application.created_at else None,
             "updated_at": application.updated_at.isoformat() if application.updated_at else None,
         }
+    }
+
+
+@router.put("/author-profile", auth=jwt_bearer_auth, response=AuthorApplicationOutput)
+def update_author_profile(request, payload: AuthorProfileInput):
+    application = update_author_profile_handler(
+        user_id=request.auth.id,
+        subscription_price=payload.subscription_price,
+        subscription_currency=payload.subscription_currency,
+        is_subscription_enabled=payload.is_subscription_enabled,
+    )
+    return {
+        "user_id": application.user_id,
+        "motivation": application.motivation,
+        "status": application.status,
+        "subscription_price": f"{application.subscription_price:.2f}",
+        "subscription_currency": application.subscription_currency,
+        "is_subscription_enabled": application.is_subscription_enabled,
+        "review_comment": application.review_comment,
+        "reviewed_at": application.reviewed_at.isoformat() if application.reviewed_at else None,
+        "created_at": application.created_at.isoformat() if application.created_at else None,
+        "updated_at": application.updated_at.isoformat() if application.updated_at else None,
     }

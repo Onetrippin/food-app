@@ -1,11 +1,19 @@
+from decimal import Decimal, InvalidOperation
+
 from app.internal.domain.entities.recipe_analytics import RecipeAnalyticsEntity
 from app.internal.domain.entities.recipe import RecipeEntity
+from app.internal.domain.interfaces.payment import PaymentRepositoryInterface
 from app.internal.domain.interfaces.recipe import RecipeRepositoryInterface
 
 
 class RecipeService:
-    def __init__(self, repository: RecipeRepositoryInterface) -> None:
+    def __init__(
+        self,
+        repository: RecipeRepositoryInterface,
+        payment_repository: PaymentRepositoryInterface,
+    ) -> None:
         self._repository = repository
+        self._payment_repository = payment_repository
 
     def list_recipes(self) -> list[RecipeEntity]:
         return self._repository.list()
@@ -28,6 +36,18 @@ class RecipeService:
 
         if not recipe.is_published and not actor_is_staff and recipe.author_id != actor_id:
             raise PermissionError("Recipe is not published.")
+
+        if (
+            recipe.price_amount > 0
+            and not actor_is_staff
+            and recipe.author_id != actor_id
+            and not self._payment_repository.has_recipe_access(
+                user_id=actor_id,
+                recipe_id=recipe_id,
+                author_id=recipe.author_id,
+            )
+        ):
+            raise PermissionError("Recipe requires purchase or active author subscription.")
 
         self._repository.increment_views(recipe_id=recipe_id)
         refreshed_recipe = self._repository.get_by_id(recipe_id)
@@ -62,6 +82,8 @@ class RecipeService:
         title: str,
         description: str,
         ingredients: list[str],
+        price_amount: str,
+        price_currency: str,
         is_published: bool,
     ) -> RecipeEntity:
         normalized_title = title.strip()
@@ -70,6 +92,8 @@ class RecipeService:
             raise ValueError("Title is required.")
 
         normalized_ingredients = self._normalize_ingredients(ingredients)
+        normalized_price_amount = self._normalize_price_amount(price_amount)
+        normalized_price_currency = self._normalize_currency(price_currency)
         self._validate_publish_permission(
             actor_is_staff=actor_is_staff,
             actor_can_publish_recipes=actor_can_publish_recipes,
@@ -81,6 +105,8 @@ class RecipeService:
             title=normalized_title,
             description=description.strip(),
             ingredients=normalized_ingredients,
+            price_amount=normalized_price_amount,
+            price_currency=normalized_price_currency,
             is_published=is_published,
         )
 
@@ -93,6 +119,8 @@ class RecipeService:
         title: str,
         description: str,
         ingredients: list[str],
+        price_amount: str,
+        price_currency: str,
         is_published: bool,
     ) -> RecipeEntity:
         recipe = self.get_recipe(recipe_id=recipe_id)
@@ -106,6 +134,8 @@ class RecipeService:
             raise ValueError("Title is required.")
 
         normalized_ingredients = self._normalize_ingredients(ingredients)
+        normalized_price_amount = self._normalize_price_amount(price_amount)
+        normalized_price_currency = self._normalize_currency(price_currency)
         self._validate_publish_permission(
             actor_is_staff=actor_is_staff,
             actor_can_publish_recipes=actor_can_publish_recipes,
@@ -116,6 +146,8 @@ class RecipeService:
             title=normalized_title,
             description=description.strip(),
             ingredients=normalized_ingredients,
+            price_amount=normalized_price_amount,
+            price_currency=normalized_price_currency,
             is_published=is_published,
         )
 
@@ -204,3 +236,24 @@ class RecipeService:
             normalized_ingredients.append(normalized_ingredient)
 
         return normalized_ingredients
+
+    @staticmethod
+    def _normalize_price_amount(price_amount: str) -> Decimal:
+        try:
+            normalized_amount = Decimal(price_amount.strip())
+        except (InvalidOperation, AttributeError) as error:
+            raise ValueError("Invalid price amount.") from error
+
+        if normalized_amount < 0:
+            raise ValueError("Price amount cannot be negative.")
+
+        return normalized_amount.quantize(Decimal("0.01"))
+
+    @staticmethod
+    def _normalize_currency(price_currency: str) -> str:
+        normalized_currency = price_currency.strip().upper()
+
+        if not normalized_currency:
+            raise ValueError("Price currency is required.")
+
+        return normalized_currency

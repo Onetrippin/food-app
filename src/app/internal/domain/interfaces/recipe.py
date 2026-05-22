@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Protocol
 
 from app.internal.domain.entities.recipe import RecipeEntity
@@ -24,6 +25,8 @@ class RecipeRepositoryInterface(Protocol):
         title: str,
         description: str,
         ingredients: list[str],
+        price_amount: Decimal,
+        price_currency: str,
         is_published: bool,
     ) -> RecipeEntity:
         ...
@@ -34,6 +37,8 @@ class RecipeRepositoryInterface(Protocol):
         title: str,
         description: str,
         ingredients: list[str],
+        price_amount: Decimal,
+        price_currency: str,
         is_published: bool,
     ) -> RecipeEntity | None:
         ...

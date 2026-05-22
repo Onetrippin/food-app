@@ -24,6 +24,7 @@ If you open the project through another host or port in development, add that or
 - `DELETE /api/auth/account` deletes the authenticated account
 - `POST /api/auth/author-application` submits an application for author publishing rights
 - `GET /api/auth/author-application` returns the current user's author application status
+- `PUT /api/auth/author-profile` updates author subscription price and enables or disables subscriptions after approval
 - `GET /api/recipes/` also requires `Authorization: Bearer <access_token>`
 - `GET /api/recipes/{recipe_id}` returns a specific recipe
 - `GET /api/recipes/search?q=...` searches recipes by title and description
@@ -38,6 +39,24 @@ If you open the project through another host or port in development, add that or
 - `DELETE /api/recipes/{recipe_id}/like` removes a like
 - `GET /api/recipes/favorites` returns the authenticated user's favorite recipes
 - `GET /api/recipes/analytics` returns analytics for the authenticated user's recipes
+- recipe responses now include `price_amount` and `price_currency`
+
+## Payments
+
+- `POST /api/payments/recipes/{recipe_id}/checkout` creates a YooKassa payment for a paid recipe
+- `POST /api/payments/authors/{author_id}/subscription/checkout` creates a YooKassa payment for a paid author subscription
+- `GET /api/payments/me/recipe-purchases` returns purchased recipes
+- `GET /api/payments/me/author-subscriptions` returns author subscriptions
+- `POST /api/payments/yookassa/webhook` processes YooKassa webhooks
+
+Recipe access rules:
+- free published recipes are available to everyone with JWT auth
+- paid recipes require either a direct purchase or an active paid subscription to that recipe's author
+- authors and staff always keep access to their own recipes
+
+Operational notes:
+- author applications are approved or rejected manually in Django admin
+- before using checkout endpoints, configure `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, and `YOOKASSA_RETURN_URL` in `.env`
 
 For development, the default email backend writes outgoing messages to container logs. To send real emails, configure SMTP variables in `.env`.
 

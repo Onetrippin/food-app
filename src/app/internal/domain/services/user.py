@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from django.conf import settings
 
@@ -162,3 +163,29 @@ class UserService:
             raise ValueError("User not found.")
 
         return self._author_application_repository.get_by_user_id(user_id=user_id)
+
+    def update_author_profile(
+        self,
+        user_id: int,
+        subscription_price: Decimal,
+        subscription_currency: str,
+        is_subscription_enabled: bool,
+    ) -> AuthorApplicationEntity:
+        user = self._user_repository.get_by_id(user_id)
+
+        if user is None or not user.is_active:
+            raise ValueError("User not found.")
+
+        if subscription_price < 0:
+            raise ValueError("Subscription price cannot be negative.")
+
+        normalized_currency = subscription_currency.strip().upper()
+        if not normalized_currency:
+            raise ValueError("Subscription currency is required.")
+
+        return self._author_application_repository.update_subscription_settings(
+            user_id=user_id,
+            subscription_price=subscription_price,
+            subscription_currency=normalized_currency,
+            is_subscription_enabled=is_subscription_enabled,
+        )

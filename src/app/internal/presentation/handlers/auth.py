@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from django.conf import settings
 from django.core.mail import send_mail
 from ninja.errors import HttpError
@@ -111,6 +113,30 @@ def get_author_application_handler(user_id: int) -> AuthorApplicationEntity | No
 
     try:
         return service.get_author_application(user_id=user_id)
+    except ValueError as error:
+        raise HttpError(400, str(error)) from error
+
+
+def update_author_profile_handler(
+    user_id: int,
+    subscription_price: str,
+    subscription_currency: str,
+    is_subscription_enabled: bool,
+) -> AuthorApplicationEntity:
+    service = _build_user_service()
+
+    try:
+        normalized_price = Decimal(subscription_price.strip())
+    except (InvalidOperation, AttributeError) as error:
+        raise HttpError(400, "Invalid subscription price.") from error
+
+    try:
+        return service.update_author_profile(
+            user_id=user_id,
+            subscription_price=normalized_price,
+            subscription_currency=subscription_currency,
+            is_subscription_enabled=is_subscription_enabled,
+        )
     except ValueError as error:
         raise HttpError(400, str(error)) from error
 
