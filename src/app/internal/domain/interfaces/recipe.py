@@ -3,7 +3,11 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Protocol
 
+from app.internal.domain.entities.author_follow import AuthorFollowEntity
+from app.internal.domain.entities.notification import NotificationEntity
 from app.internal.domain.entities.recipe import RecipeEntity
+from app.internal.domain.entities.recipe_report import RecipeReportEntity
+from app.internal.domain.entities.recipe_review import RecipeReviewEntity
 
 
 class RecipeRepositoryInterface(Protocol):
@@ -65,4 +69,55 @@ class RecipeRepositoryInterface(Protocol):
         ...
 
     def list_by_author(self, author_id: int) -> list[RecipeEntity]:
+        ...
+
+    def list_reviews(self, recipe_id: int) -> list[RecipeReviewEntity]:
+        ...
+
+    def upsert_review(
+        self,
+        user_id: int,
+        recipe_id: int,
+        rating: int,
+        review_text: str,
+    ) -> RecipeReviewEntity:
+        ...
+
+    def create_report(
+        self,
+        user_id: int,
+        recipe_id: int,
+        reason: str,
+        description: str,
+    ) -> RecipeReportEntity:
+        ...
+
+    def author_exists(self, author_id: int) -> bool:
+        ...
+
+    def follow_author(self, subscriber_id: int, author_id: int) -> None:
+        ...
+
+    def unfollow_author(self, subscriber_id: int, author_id: int) -> None:
+        ...
+
+    def list_followed_authors(self, subscriber_id: int) -> list[AuthorFollowEntity]:
+        ...
+
+    def list_follower_ids(self, author_id: int) -> list[int]:
+        ...
+
+    def create_recipe_notifications(
+        self,
+        user_ids: list[int],
+        recipe_id: int,
+        recipe_title: str,
+        author_username: str | None,
+    ) -> None:
+        ...
+
+    def list_notifications(self, user_id: int) -> list[NotificationEntity]:
+        ...
+
+    def mark_notification_as_read(self, user_id: int, notification_id: int) -> bool:
         ...

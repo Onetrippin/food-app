@@ -1,10 +1,14 @@
 from django.contrib import admin
 
 from app.internal.data.models import (
+    AuthorFollowModel,
+    NotificationModel,
     RecipeFavoriteModel,
     RecipeIngredientModel,
     RecipeLikeModel,
     RecipeModel,
+    RecipeReportModel,
+    RecipeReviewModel,
 )
 
 
@@ -42,4 +46,35 @@ class RecipeFavoriteAdmin(admin.ModelAdmin):
 class RecipeLikeAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "recipe", "created_at")
     search_fields = ("user__username", "recipe__title")
+    autocomplete_fields = ("user", "recipe")
+
+
+@admin.register(RecipeReviewModel)
+class RecipeReviewAdmin(admin.ModelAdmin):
+    list_display = ("id", "recipe", "user", "rating", "updated_at")
+    list_filter = ("rating",)
+    search_fields = ("recipe__title", "user__username", "review_text")
+    autocomplete_fields = ("recipe", "user")
+
+
+@admin.register(RecipeReportModel)
+class RecipeReportAdmin(admin.ModelAdmin):
+    list_display = ("id", "recipe", "user", "reason", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("recipe__title", "user__username", "reason", "description")
+    autocomplete_fields = ("recipe", "user")
+
+
+@admin.register(AuthorFollowModel)
+class AuthorFollowAdmin(admin.ModelAdmin):
+    list_display = ("id", "subscriber", "author", "created_at")
+    search_fields = ("subscriber__username", "author__username")
+    autocomplete_fields = ("subscriber", "author")
+
+
+@admin.register(NotificationModel)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "notification_type", "recipe", "is_read", "created_at")
+    list_filter = ("notification_type", "is_read")
+    search_fields = ("user__username", "title", "message", "recipe__title")
     autocomplete_fields = ("user", "recipe")

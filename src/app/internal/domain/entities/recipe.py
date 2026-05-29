@@ -18,6 +18,8 @@ class RecipeEntity:
     views_count: int = 0
     likes_count: int = 0
     favorites_count: int = 0
+    average_rating: Decimal | None = None
+    reviews_count: int = 0
     id: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
