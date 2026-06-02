@@ -26,12 +26,14 @@ class RecipeAdmin(admin.ModelAdmin):
         "price_amount",
         "price_currency",
         "is_published",
+        "moderation_status",
         "views_count",
         "created_at",
         "updated_at",
     )
-    search_fields = ("title", "author__username")
-    readonly_fields = ("views_count", "created_at", "updated_at")
+    list_filter = ("is_published", "moderation_status")
+    search_fields = ("title", "author__username", "moderation_comment")
+    readonly_fields = ("views_count", "reviewed_at", "created_at", "updated_at")
     inlines = [RecipeIngredientInline]
 
 
@@ -51,9 +53,9 @@ class RecipeLikeAdmin(admin.ModelAdmin):
 
 @admin.register(RecipeReviewModel)
 class RecipeReviewAdmin(admin.ModelAdmin):
-    list_display = ("id", "recipe", "user", "rating", "updated_at")
-    list_filter = ("rating",)
-    search_fields = ("recipe__title", "user__username", "review_text")
+    list_display = ("id", "recipe", "user", "rating", "moderation_status", "updated_at")
+    list_filter = ("rating", "moderation_status")
+    search_fields = ("recipe__title", "user__username", "review_text", "moderation_comment")
     autocomplete_fields = ("recipe", "user")
 
 
@@ -61,7 +63,7 @@ class RecipeReviewAdmin(admin.ModelAdmin):
 class RecipeReportAdmin(admin.ModelAdmin):
     list_display = ("id", "recipe", "user", "reason", "status", "created_at")
     list_filter = ("status",)
-    search_fields = ("recipe__title", "user__username", "reason", "description")
+    search_fields = ("recipe__title", "user__username", "reason", "description", "moderation_comment")
     autocomplete_fields = ("recipe", "user")
 
 

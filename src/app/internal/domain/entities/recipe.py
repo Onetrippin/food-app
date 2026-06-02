@@ -15,11 +15,14 @@ class RecipeEntity:
     price_amount: Decimal = Decimal("0.00")
     price_currency: str = "RUB"
     is_published: bool = True
+    moderation_status: str = "draft"
+    moderation_comment: str = ""
     views_count: int = 0
     likes_count: int = 0
     favorites_count: int = 0
     average_rating: Decimal | None = None
     reviews_count: int = 0
     id: int | None = None
+    reviewed_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

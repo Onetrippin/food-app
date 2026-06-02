@@ -5,6 +5,9 @@ from app.internal.presentation.handlers.recipe import (
     add_recipe_to_favorites_handler,
     add_recipe_like_handler,
     add_recipe_review_handler,
+    approve_recipe_handler,
+    approve_report_handler,
+    approve_review_handler,
     create_recipe_handler,
     delete_recipe_handler,
     find_recipes_by_ingredients_handler,
@@ -15,8 +18,14 @@ from app.internal.presentation.handlers.recipe import (
     list_favorite_recipes_handler,
     list_followed_authors_handler,
     list_notifications_handler,
+    list_recipes_for_moderation_handler,
+    list_reports_for_moderation_handler,
     list_recipe_reviews_handler,
+    list_reviews_for_moderation_handler,
     mark_notification_as_read_handler,
+    reject_recipe_handler,
+    reject_report_handler,
+    reject_review_handler,
     remove_recipe_from_favorites_handler,
     remove_recipe_like_handler,
     report_recipe_handler,
@@ -41,11 +50,14 @@ class RecipeOutput(Schema):
     price_currency: str
     has_access: bool
     is_published: bool
+    moderation_status: str
+    moderation_comment: str
     views_count: int
     likes_count: int
     favorites_count: int
     average_rating: str | None
     reviews_count: int
+    reviewed_at: str | None
     created_at: str | None
     updated_at: str | None
 
@@ -69,11 +81,16 @@ class RecipeReviewInput(Schema):
 
 
 class RecipeReviewOutput(Schema):
+    id: int
     user_id: int
     username: str
     recipe_id: int
+    recipe_title: str
     rating: int
     review_text: str
+    moderation_status: str
+    moderation_comment: str
+    reviewed_at: str | None
     created_at: str
     updated_at: str
 
@@ -81,6 +98,25 @@ class RecipeReviewOutput(Schema):
 class RecipeReportInput(Schema):
     reason: str
     description: str = ""
+
+
+class RecipeReportOutput(Schema):
+    id: int
+    user_id: int
+    username: str
+    recipe_id: int
+    recipe_title: str
+    reason: str
+    description: str
+    status: str
+    moderation_comment: str
+    reviewed_at: str | None
+    created_at: str
+    updated_at: str
+
+
+class ModerationDecisionInput(Schema):
+    moderation_comment: str = ""
 
 
 class AuthorFollowOutput(Schema):
@@ -178,6 +214,84 @@ def mark_notification_as_read(request, notification_id: int):
     return mark_notification_as_read_handler(
         user_id=request.auth.id,
         notification_id=notification_id,
+    )
+
+
+@router.get("/moderation/recipes", auth=jwt_bearer_auth, response=list[RecipeOutput])
+def list_recipes_for_moderation(request, status: str | None = Query(None)):
+    return list_recipes_for_moderation_handler(
+        actor_is_staff=request.auth.is_staff,
+        status=status,
+    )
+
+
+@router.post("/moderation/recipes/{recipe_id}/approve", auth=jwt_bearer_auth, response=RecipeOutput)
+def approve_recipe(request, recipe_id: int, payload: ModerationDecisionInput):
+    return approve_recipe_handler(
+        actor_is_staff=request.auth.is_staff,
+        recipe_id=recipe_id,
+        moderation_comment=payload.moderation_comment,
+    )
+
+
+@router.post("/moderation/recipes/{recipe_id}/reject", auth=jwt_bearer_auth, response=RecipeOutput)
+def reject_recipe(request, recipe_id: int, payload: ModerationDecisionInput):
+    return reject_recipe_handler(
+        actor_is_staff=request.auth.is_staff,
+        recipe_id=recipe_id,
+        moderation_comment=payload.moderation_comment,
+    )
+
+
+@router.get("/moderation/reviews", auth=jwt_bearer_auth, response=list[RecipeReviewOutput])
+def list_reviews_for_moderation(request, status: str | None = Query(None)):
+    return list_reviews_for_moderation_handler(
+        actor_is_staff=request.auth.is_staff,
+        status=status,
+    )
+
+
+@router.post("/moderation/reviews/{review_id}/approve", auth=jwt_bearer_auth, response=RecipeReviewOutput)
+def approve_review(request, review_id: int, payload: ModerationDecisionInput):
+    return approve_review_handler(
+        actor_is_staff=request.auth.is_staff,
+        review_id=review_id,
+        moderation_comment=payload.moderation_comment,
+    )
+
+
+@router.post("/moderation/reviews/{review_id}/reject", auth=jwt_bearer_auth, response=RecipeReviewOutput)
+def reject_review(request, review_id: int, payload: ModerationDecisionInput):
+    return reject_review_handler(
+        actor_is_staff=request.auth.is_staff,
+        review_id=review_id,
+        moderation_comment=payload.moderation_comment,
+    )
+
+
+@router.get("/moderation/reports", auth=jwt_bearer_auth, response=list[RecipeReportOutput])
+def list_reports_for_moderation(request, status: str | None = Query(None)):
+    return list_reports_for_moderation_handler(
+        actor_is_staff=request.auth.is_staff,
+        status=status,
+    )
+
+
+@router.post("/moderation/reports/{report_id}/approve", auth=jwt_bearer_auth, response=RecipeReportOutput)
+def approve_report(request, report_id: int, payload: ModerationDecisionInput):
+    return approve_report_handler(
+        actor_is_staff=request.auth.is_staff,
+        report_id=report_id,
+        moderation_comment=payload.moderation_comment,
+    )
+
+
+@router.post("/moderation/reports/{report_id}/reject", auth=jwt_bearer_auth, response=RecipeReportOutput)
+def reject_report(request, report_id: int, payload: ModerationDecisionInput):
+    return reject_report_handler(
+        actor_is_staff=request.auth.is_staff,
+        report_id=report_id,
+        moderation_comment=payload.moderation_comment,
     )
 
 

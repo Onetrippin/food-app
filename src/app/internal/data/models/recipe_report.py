@@ -25,6 +25,8 @@ class RecipeReportModel(models.Model):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    moderation_comment = models.TextField(blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

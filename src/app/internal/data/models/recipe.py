@@ -4,6 +4,12 @@ from django.db import models
 
 
 class RecipeModel(models.Model):
+    class ModerationStatus(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -21,6 +27,13 @@ class RecipeModel(models.Model):
     )
     price_currency = models.CharField(max_length=3, default="RUB")
     is_published = models.BooleanField(default=True)
+    moderation_status = models.CharField(
+        max_length=20,
+        choices=ModerationStatus.choices,
+        default=ModerationStatus.DRAFT,
+    )
+    moderation_comment = models.TextField(blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     views_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

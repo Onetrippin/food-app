@@ -5,6 +5,7 @@ from app.internal.data.repositories.recipe import DjangoRecipeRepository
 from app.internal.domain.entities.author_follow import AuthorFollowEntity
 from app.internal.domain.entities.notification import NotificationEntity
 from app.internal.domain.entities.recipe import RecipeEntity
+from app.internal.domain.entities.recipe_report import RecipeReportEntity
 from app.internal.domain.entities.recipe_review import RecipeReviewEntity
 from app.internal.domain.services.recipe import RecipeService
 
@@ -422,6 +423,219 @@ def mark_notification_as_read_handler(user_id: int, notification_id: int) -> dic
     return {"detail": "Notification marked as read."}
 
 
+def list_recipes_for_moderation_handler(
+    actor_is_staff: bool,
+    status: str | None,
+) -> list[dict[str, object]]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        recipes = service.list_recipes_for_moderation(
+            actor_is_staff=actor_is_staff,
+            status=status,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(400, str(error)) from error
+
+    return [
+        _serialize_recipe(recipe, user_id=recipe.author_id or 0, user_is_staff=True)
+        for recipe in recipes
+    ]
+
+
+def approve_recipe_handler(
+    actor_is_staff: bool,
+    recipe_id: int,
+    moderation_comment: str,
+) -> dict[str, object]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        recipe = service.approve_recipe(
+            actor_is_staff=actor_is_staff,
+            recipe_id=recipe_id,
+            moderation_comment=moderation_comment,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(404, str(error)) from error
+
+    return _serialize_recipe(recipe, user_id=recipe.author_id or 0, user_is_staff=True)
+
+
+def reject_recipe_handler(
+    actor_is_staff: bool,
+    recipe_id: int,
+    moderation_comment: str,
+) -> dict[str, object]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        recipe = service.reject_recipe(
+            actor_is_staff=actor_is_staff,
+            recipe_id=recipe_id,
+            moderation_comment=moderation_comment,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(404, str(error)) from error
+
+    return _serialize_recipe(recipe, user_id=recipe.author_id or 0, user_is_staff=True)
+
+
+def list_reviews_for_moderation_handler(
+    actor_is_staff: bool,
+    status: str | None,
+) -> list[dict[str, object]]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        reviews = service.list_reviews_for_moderation(
+            actor_is_staff=actor_is_staff,
+            status=status,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(400, str(error)) from error
+
+    return [_serialize_review(review) for review in reviews]
+
+
+def approve_review_handler(
+    actor_is_staff: bool,
+    review_id: int,
+    moderation_comment: str,
+) -> dict[str, object]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        review = service.approve_review(
+            actor_is_staff=actor_is_staff,
+            review_id=review_id,
+            moderation_comment=moderation_comment,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(404, str(error)) from error
+
+    return _serialize_review(review)
+
+
+def reject_review_handler(
+    actor_is_staff: bool,
+    review_id: int,
+    moderation_comment: str,
+) -> dict[str, object]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        review = service.reject_review(
+            actor_is_staff=actor_is_staff,
+            review_id=review_id,
+            moderation_comment=moderation_comment,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(404, str(error)) from error
+
+    return _serialize_review(review)
+
+
+def list_reports_for_moderation_handler(
+    actor_is_staff: bool,
+    status: str | None,
+) -> list[dict[str, object]]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        reports = service.list_reports_for_moderation(
+            actor_is_staff=actor_is_staff,
+            status=status,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(400, str(error)) from error
+
+    return [_serialize_report(report) for report in reports]
+
+
+def approve_report_handler(
+    actor_is_staff: bool,
+    report_id: int,
+    moderation_comment: str,
+) -> dict[str, object]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        report = service.approve_report(
+            actor_is_staff=actor_is_staff,
+            report_id=report_id,
+            moderation_comment=moderation_comment,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(404, str(error)) from error
+
+    return _serialize_report(report)
+
+
+def reject_report_handler(
+    actor_is_staff: bool,
+    report_id: int,
+    moderation_comment: str,
+) -> dict[str, object]:
+    service = RecipeService(
+        repository=DjangoRecipeRepository(),
+        payment_repository=DjangoPaymentRepository(),
+    )
+
+    try:
+        report = service.reject_report(
+            actor_is_staff=actor_is_staff,
+            report_id=report_id,
+            moderation_comment=moderation_comment,
+        )
+    except PermissionError as error:
+        raise HttpError(403, str(error)) from error
+    except ValueError as error:
+        raise HttpError(404, str(error)) from error
+
+    return _serialize_report(report)
+
+
 def _serialize_recipe(recipe: RecipeEntity, user_id: int, user_is_staff: bool) -> dict[str, object]:
     payment_repository = DjangoPaymentRepository()
     has_access = _has_recipe_access(
@@ -442,6 +656,8 @@ def _serialize_recipe(recipe: RecipeEntity, user_id: int, user_is_staff: bool) -
         "price_currency": recipe.price_currency,
         "has_access": has_access,
         "is_published": recipe.is_published,
+        "moderation_status": recipe.moderation_status,
+        "moderation_comment": recipe.moderation_comment,
         "views_count": recipe.views_count,
         "likes_count": recipe.likes_count,
         "favorites_count": recipe.favorites_count,
@@ -449,6 +665,7 @@ def _serialize_recipe(recipe: RecipeEntity, user_id: int, user_is_staff: bool) -
             f"{recipe.average_rating:.2f}" if recipe.average_rating is not None else None
         ),
         "reviews_count": recipe.reviews_count,
+        "reviewed_at": recipe.reviewed_at.isoformat() if recipe.reviewed_at else None,
         "created_at": recipe.created_at.isoformat() if recipe.created_at else None,
         "updated_at": recipe.updated_at.isoformat() if recipe.updated_at else None,
     }
@@ -478,11 +695,16 @@ def _has_recipe_access(
 
 def _serialize_review(review: RecipeReviewEntity) -> dict[str, object]:
     return {
+        "id": review.id,
         "user_id": review.user_id,
         "username": review.username,
         "recipe_id": review.recipe_id,
+        "recipe_title": review.recipe_title,
         "rating": review.rating,
         "review_text": review.review_text,
+        "moderation_status": review.moderation_status,
+        "moderation_comment": review.moderation_comment,
+        "reviewed_at": review.reviewed_at.isoformat() if review.reviewed_at else None,
         "created_at": review.created_at.isoformat(),
         "updated_at": review.updated_at.isoformat(),
     }
@@ -508,4 +730,21 @@ def _serialize_notification(notification: NotificationEntity) -> dict[str, objec
         "is_read": notification.is_read,
         "created_at": notification.created_at.isoformat(),
         "read_at": notification.read_at.isoformat() if notification.read_at else None,
+    }
+
+
+def _serialize_report(report: RecipeReportEntity) -> dict[str, object]:
+    return {
+        "id": report.id,
+        "user_id": report.user_id,
+        "username": report.username,
+        "recipe_id": report.recipe_id,
+        "recipe_title": report.recipe_title,
+        "reason": report.reason,
+        "description": report.description,
+        "status": report.status,
+        "moderation_comment": report.moderation_comment,
+        "reviewed_at": report.reviewed_at.isoformat() if report.reviewed_at else None,
+        "created_at": report.created_at.isoformat(),
+        "updated_at": report.updated_at.isoformat(),
     }

@@ -92,7 +92,14 @@ class DjangoRecipeRepository:
         price_amount: Decimal,
         price_currency: str,
         is_published: bool,
+        moderation_status: str,
+        moderation_comment: str,
     ) -> RecipeEntity:
+        reviewed_at = (
+            timezone.now()
+            if moderation_status == RecipeModel.ModerationStatus.APPROVED
+            else None
+        )
         recipe = RecipeModel.objects.create(
             author_id=author_id,
             title=title,
@@ -100,6 +107,9 @@ class DjangoRecipeRepository:
             price_amount=price_amount,
             price_currency=price_currency,
             is_published=is_published,
+            moderation_status=moderation_status,
+            moderation_comment=moderation_comment,
+            reviewed_at=reviewed_at,
         )
         self._replace_ingredients(recipe=recipe, ingredients=ingredients)
         recipe = self._base_queryset().get(id=recipe.id)
@@ -115,6 +125,8 @@ class DjangoRecipeRepository:
         price_amount: Decimal,
         price_currency: str,
         is_published: bool,
+        moderation_status: str,
+        moderation_comment: str,
     ) -> RecipeEntity | None:
         recipe = RecipeModel.objects.filter(id=recipe_id).first()
 
@@ -126,6 +138,13 @@ class DjangoRecipeRepository:
         recipe.price_amount = price_amount
         recipe.price_currency = price_currency
         recipe.is_published = is_published
+        recipe.moderation_status = moderation_status
+        recipe.moderation_comment = moderation_comment
+        recipe.reviewed_at = (
+            timezone.now()
+            if moderation_status == RecipeModel.ModerationStatus.APPROVED
+            else None
+        )
         recipe.save(
             update_fields=[
                 "title",
@@ -133,6 +152,9 @@ class DjangoRecipeRepository:
                 "price_amount",
                 "price_currency",
                 "is_published",
+                "moderation_status",
+                "moderation_comment",
+                "reviewed_at",
                 "updated_at",
             ]
         )
@@ -171,19 +193,14 @@ class DjangoRecipeRepository:
         return [self._build_entity(recipe) for recipe in recipes]
 
     def list_reviews(self, recipe_id: int) -> list[RecipeReviewEntity]:
-        reviews = RecipeReviewModel.objects.select_related("user").filter(recipe_id=recipe_id)
-        return [
-            RecipeReviewEntity(
-                user_id=review.user_id,
-                username=review.user.username,
-                recipe_id=review.recipe_id,
-                rating=review.rating,
-                review_text=review.review_text,
-                created_at=review.created_at,
-                updated_at=review.updated_at,
+        reviews = (
+            RecipeReviewModel.objects.select_related("user", "recipe")
+            .filter(
+                recipe_id=recipe_id,
+                moderation_status=RecipeReviewModel.ModerationStatus.APPROVED,
             )
-            for review in reviews
-        ]
+        )
+        return [self._build_review_entity(review) for review in reviews]
 
     def upsert_review(
         self,
@@ -191,6 +208,7 @@ class DjangoRecipeRepository:
         recipe_id: int,
         rating: int,
         review_text: str,
+        moderation_status: str,
     ) -> RecipeReviewEntity:
         review, _ = RecipeReviewModel.objects.update_or_create(
             user_id=user_id,
@@ -198,18 +216,17 @@ class DjangoRecipeRepository:
             defaults={
                 "rating": rating,
                 "review_text": review_text,
+                "moderation_status": moderation_status,
+                "moderation_comment": "",
+                "reviewed_at": (
+                    timezone.now()
+                    if moderation_status == RecipeReviewModel.ModerationStatus.APPROVED
+                    else None
+                ),
             },
         )
-        review = RecipeReviewModel.objects.select_related("user").get(id=review.id)
-        return RecipeReviewEntity(
-            user_id=review.user_id,
-            username=review.user.username,
-            recipe_id=review.recipe_id,
-            rating=review.rating,
-            review_text=review.review_text,
-            created_at=review.created_at,
-            updated_at=review.updated_at,
-        )
+        review = RecipeReviewModel.objects.select_related("user", "recipe").get(id=review.id)
+        return self._build_review_entity(review)
 
     def create_report(
         self,
@@ -224,15 +241,8 @@ class DjangoRecipeRepository:
             reason=reason,
             description=description,
         )
-        return RecipeReportEntity(
-            user_id=report.user_id,
-            recipe_id=report.recipe_id,
-            reason=report.reason,
-            description=report.description,
-            status=report.status,
-            created_at=report.created_at,
-            updated_at=report.updated_at,
-        )
+        report = RecipeReportModel.objects.select_related("user", "recipe").get(id=report.id)
+        return self._build_report_entity(report)
 
     def author_exists(self, author_id: int) -> bool:
         return (
@@ -340,6 +350,130 @@ class DjangoRecipeRepository:
         notification.save(update_fields=["is_read", "read_at"])
         return True
 
+    def list_recipes_for_moderation(self, status: str | None = None) -> list[RecipeEntity]:
+        recipes = self._base_queryset()
+
+        if status:
+            recipes = recipes.filter(moderation_status=status)
+
+        return [self._build_entity(recipe) for recipe in recipes]
+
+    def approve_recipe(self, recipe_id: int, moderation_comment: str) -> RecipeEntity | None:
+        recipe = RecipeModel.objects.filter(id=recipe_id).first()
+
+        if recipe is None:
+            return None
+
+        recipe.is_published = True
+        recipe.moderation_status = RecipeModel.ModerationStatus.APPROVED
+        recipe.moderation_comment = moderation_comment
+        recipe.reviewed_at = timezone.now()
+        recipe.save(
+            update_fields=[
+                "is_published",
+                "moderation_status",
+                "moderation_comment",
+                "reviewed_at",
+                "updated_at",
+            ]
+        )
+        recipe = self._base_queryset().get(id=recipe_id)
+        return self._build_entity(recipe)
+
+    def reject_recipe(self, recipe_id: int, moderation_comment: str) -> RecipeEntity | None:
+        recipe = RecipeModel.objects.filter(id=recipe_id).first()
+
+        if recipe is None:
+            return None
+
+        recipe.is_published = False
+        recipe.moderation_status = RecipeModel.ModerationStatus.REJECTED
+        recipe.moderation_comment = moderation_comment
+        recipe.reviewed_at = timezone.now()
+        recipe.save(
+            update_fields=[
+                "is_published",
+                "moderation_status",
+                "moderation_comment",
+                "reviewed_at",
+                "updated_at",
+            ]
+        )
+        recipe = self._base_queryset().get(id=recipe_id)
+        return self._build_entity(recipe)
+
+    def list_reviews_for_moderation(
+        self,
+        status: str | None = None,
+    ) -> list[RecipeReviewEntity]:
+        reviews = RecipeReviewModel.objects.select_related("user", "recipe")
+
+        if status:
+            reviews = reviews.filter(moderation_status=status)
+
+        return [self._build_review_entity(review) for review in reviews]
+
+    def moderate_review(
+        self,
+        review_id: int,
+        moderation_status: str,
+        moderation_comment: str,
+    ) -> RecipeReviewEntity | None:
+        review = RecipeReviewModel.objects.filter(id=review_id).first()
+
+        if review is None:
+            return None
+
+        review.moderation_status = moderation_status
+        review.moderation_comment = moderation_comment
+        review.reviewed_at = timezone.now()
+        review.save(
+            update_fields=[
+                "moderation_status",
+                "moderation_comment",
+                "reviewed_at",
+                "updated_at",
+            ]
+        )
+        review = RecipeReviewModel.objects.select_related("user", "recipe").get(id=review_id)
+        return self._build_review_entity(review)
+
+    def list_reports_for_moderation(
+        self,
+        status: str | None = None,
+    ) -> list[RecipeReportEntity]:
+        reports = RecipeReportModel.objects.select_related("user", "recipe")
+
+        if status:
+            reports = reports.filter(status=status)
+
+        return [self._build_report_entity(report) for report in reports]
+
+    def moderate_report(
+        self,
+        report_id: int,
+        status: str,
+        moderation_comment: str,
+    ) -> RecipeReportEntity | None:
+        report = RecipeReportModel.objects.filter(id=report_id).first()
+
+        if report is None:
+            return None
+
+        report.status = status
+        report.moderation_comment = moderation_comment
+        report.reviewed_at = timezone.now()
+        report.save(
+            update_fields=[
+                "status",
+                "moderation_comment",
+                "reviewed_at",
+                "updated_at",
+            ]
+        )
+        report = RecipeReportModel.objects.select_related("user", "recipe").get(id=report_id)
+        return self._build_report_entity(report)
+
     @staticmethod
     def _build_entity(recipe: RecipeModel) -> RecipeEntity:
         return RecipeEntity(
@@ -352,13 +486,50 @@ class DjangoRecipeRepository:
             price_amount=recipe.price_amount,
             price_currency=recipe.price_currency,
             is_published=recipe.is_published,
+            moderation_status=recipe.moderation_status,
+            moderation_comment=recipe.moderation_comment,
             views_count=recipe.views_count,
             likes_count=getattr(recipe, "likes_count", 0),
             favorites_count=getattr(recipe, "favorites_count", 0),
             average_rating=getattr(recipe, "average_rating", None),
             reviews_count=getattr(recipe, "reviews_count", 0),
+            reviewed_at=recipe.reviewed_at,
             created_at=recipe.created_at,
             updated_at=recipe.updated_at,
+        )
+
+    @staticmethod
+    def _build_review_entity(review: RecipeReviewModel) -> RecipeReviewEntity:
+        return RecipeReviewEntity(
+            id=review.id,
+            user_id=review.user_id,
+            username=review.user.username,
+            recipe_id=review.recipe_id,
+            recipe_title=review.recipe.title,
+            rating=review.rating,
+            review_text=review.review_text,
+            moderation_status=review.moderation_status,
+            moderation_comment=review.moderation_comment,
+            reviewed_at=review.reviewed_at,
+            created_at=review.created_at,
+            updated_at=review.updated_at,
+        )
+
+    @staticmethod
+    def _build_report_entity(report: RecipeReportModel) -> RecipeReportEntity:
+        return RecipeReportEntity(
+            id=report.id,
+            user_id=report.user_id,
+            username=report.user.username,
+            recipe_id=report.recipe_id,
+            recipe_title=report.recipe.title,
+            reason=report.reason,
+            description=report.description,
+            status=report.status,
+            moderation_comment=report.moderation_comment,
+            reviewed_at=report.reviewed_at,
+            created_at=report.created_at,
+            updated_at=report.updated_at,
         )
 
     @staticmethod
@@ -379,8 +550,19 @@ class DjangoRecipeRepository:
             .annotate(
                 likes_count=Count("liked_by_users", distinct=True),
                 favorites_count=Count("favorited_by_users", distinct=True),
-                average_rating=Avg("reviews__rating"),
-                reviews_count=Count("reviews", distinct=True),
+                average_rating=Avg(
+                    "reviews__rating",
+                    filter=Q(
+                        reviews__moderation_status=RecipeReviewModel.ModerationStatus.APPROVED
+                    ),
+                ),
+                reviews_count=Count(
+                    "reviews",
+                    filter=Q(
+                        reviews__moderation_status=RecipeReviewModel.ModerationStatus.APPROVED
+                    ),
+                    distinct=True,
+                ),
             )
             .distinct()
         )

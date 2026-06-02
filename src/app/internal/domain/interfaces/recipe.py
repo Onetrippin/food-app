@@ -32,6 +32,8 @@ class RecipeRepositoryInterface(Protocol):
         price_amount: Decimal,
         price_currency: str,
         is_published: bool,
+        moderation_status: str,
+        moderation_comment: str,
     ) -> RecipeEntity:
         ...
 
@@ -44,6 +46,8 @@ class RecipeRepositoryInterface(Protocol):
         price_amount: Decimal,
         price_currency: str,
         is_published: bool,
+        moderation_status: str,
+        moderation_comment: str,
     ) -> RecipeEntity | None:
         ...
 
@@ -80,6 +84,7 @@ class RecipeRepositoryInterface(Protocol):
         recipe_id: int,
         rating: int,
         review_text: str,
+        moderation_status: str,
     ) -> RecipeReviewEntity:
         ...
 
@@ -120,4 +125,41 @@ class RecipeRepositoryInterface(Protocol):
         ...
 
     def mark_notification_as_read(self, user_id: int, notification_id: int) -> bool:
+        ...
+
+    def list_recipes_for_moderation(self, status: str | None = None) -> list[RecipeEntity]:
+        ...
+
+    def approve_recipe(self, recipe_id: int, moderation_comment: str) -> RecipeEntity | None:
+        ...
+
+    def reject_recipe(self, recipe_id: int, moderation_comment: str) -> RecipeEntity | None:
+        ...
+
+    def list_reviews_for_moderation(
+        self,
+        status: str | None = None,
+    ) -> list[RecipeReviewEntity]:
+        ...
+
+    def moderate_review(
+        self,
+        review_id: int,
+        moderation_status: str,
+        moderation_comment: str,
+    ) -> RecipeReviewEntity | None:
+        ...
+
+    def list_reports_for_moderation(
+        self,
+        status: str | None = None,
+    ) -> list[RecipeReportEntity]:
+        ...
+
+    def moderate_report(
+        self,
+        report_id: int,
+        status: str,
+        moderation_comment: str,
+    ) -> RecipeReportEntity | None:
         ...

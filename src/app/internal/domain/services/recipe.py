@@ -103,6 +103,10 @@ class RecipeService:
             actor_can_publish_recipes=actor_can_publish_recipes,
             is_published=is_published,
         )
+        actual_is_published, moderation_status = self._resolve_recipe_publication_state(
+            requested_is_published=is_published,
+            actor_is_staff=actor_is_staff,
+        )
         recipe = self._repository.create(
             author_id=author_id,
             title=normalized_title,
@@ -110,9 +114,12 @@ class RecipeService:
             ingredients=normalized_ingredients,
             price_amount=normalized_price_amount,
             price_currency=normalized_price_currency,
-            is_published=is_published,
+            is_published=actual_is_published,
+            moderation_status=moderation_status,
+            moderation_comment="",
         )
-        self._notify_followers_about_publication(recipe=recipe)
+        if recipe.is_published:
+            self._notify_followers_about_publication(recipe=recipe)
         return recipe
 
     def update_recipe(
@@ -146,6 +153,10 @@ class RecipeService:
             actor_can_publish_recipes=actor_can_publish_recipes,
             is_published=is_published,
         )
+        actual_is_published, moderation_status = self._resolve_recipe_publication_state(
+            requested_is_published=is_published,
+            actor_is_staff=actor_is_staff,
+        )
         updated_recipe = self._repository.update(
             recipe_id=recipe_id,
             title=normalized_title,
@@ -153,7 +164,9 @@ class RecipeService:
             ingredients=normalized_ingredients,
             price_amount=normalized_price_amount,
             price_currency=normalized_price_currency,
-            is_published=is_published,
+            is_published=actual_is_published,
+            moderation_status=moderation_status,
+            moderation_comment="",
         )
 
         if updated_recipe is None:
@@ -263,6 +276,9 @@ class RecipeService:
             recipe_id=recipe_id,
             rating=normalized_rating,
             review_text=normalized_review_text,
+            moderation_status=(
+                "approved" if actor_is_staff else "pending"
+            ),
         )
 
     def report_recipe(
@@ -331,6 +347,144 @@ class RecipeService:
         if not marked:
             raise ValueError("Notification not found.")
 
+    def list_recipes_for_moderation(
+        self,
+        actor_is_staff: bool,
+        status: str | None = None,
+    ) -> list[RecipeEntity]:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+
+        normalized_status = self._normalize_recipe_moderation_status(status)
+        return self._repository.list_recipes_for_moderation(status=normalized_status)
+
+    def approve_recipe(
+        self,
+        actor_is_staff: bool,
+        recipe_id: int,
+        moderation_comment: str,
+    ) -> RecipeEntity:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        current_recipe = self.get_recipe(recipe_id=recipe_id)
+        recipe = self._repository.approve_recipe(
+            recipe_id=recipe_id,
+            moderation_comment=moderation_comment.strip(),
+        )
+
+        if recipe is None:
+            raise ValueError("Recipe not found.")
+
+        if not current_recipe.is_published and recipe.is_published:
+            self._notify_followers_about_publication(recipe=recipe)
+
+        return recipe
+
+    def reject_recipe(
+        self,
+        actor_is_staff: bool,
+        recipe_id: int,
+        moderation_comment: str,
+    ) -> RecipeEntity:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        recipe = self._repository.reject_recipe(
+            recipe_id=recipe_id,
+            moderation_comment=moderation_comment.strip(),
+        )
+
+        if recipe is None:
+            raise ValueError("Recipe not found.")
+
+        return recipe
+
+    def list_reviews_for_moderation(
+        self,
+        actor_is_staff: bool,
+        status: str | None = None,
+    ) -> list[RecipeReviewEntity]:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        normalized_status = self._normalize_review_moderation_status(status)
+        return self._repository.list_reviews_for_moderation(status=normalized_status)
+
+    def approve_review(
+        self,
+        actor_is_staff: bool,
+        review_id: int,
+        moderation_comment: str,
+    ) -> RecipeReviewEntity:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        review = self._repository.moderate_review(
+            review_id=review_id,
+            moderation_status="approved",
+            moderation_comment=moderation_comment.strip(),
+        )
+
+        if review is None:
+            raise ValueError("Review not found.")
+
+        return review
+
+    def reject_review(
+        self,
+        actor_is_staff: bool,
+        review_id: int,
+        moderation_comment: str,
+    ) -> RecipeReviewEntity:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        review = self._repository.moderate_review(
+            review_id=review_id,
+            moderation_status="rejected",
+            moderation_comment=moderation_comment.strip(),
+        )
+
+        if review is None:
+            raise ValueError("Review not found.")
+
+        return review
+
+    def list_reports_for_moderation(
+        self,
+        actor_is_staff: bool,
+        status: str | None = None,
+    ) -> list[RecipeReportEntity]:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        normalized_status = self._normalize_report_status(status)
+        return self._repository.list_reports_for_moderation(status=normalized_status)
+
+    def approve_report(
+        self,
+        actor_is_staff: bool,
+        report_id: int,
+        moderation_comment: str,
+    ) -> RecipeReportEntity:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        report = self._repository.moderate_report(
+            report_id=report_id,
+            status="reviewed",
+            moderation_comment=moderation_comment.strip(),
+        )
+
+        if report is None:
+            raise ValueError("Report not found.")
+
+        return report
+
+    def reject_report(
+        self,
+        actor_is_staff: bool,
+        report_id: int,
+        moderation_comment: str,
+    ) -> RecipeReportEntity:
+        self._ensure_moderator(actor_is_staff=actor_is_staff)
+        report = self._repository.moderate_report(
+            report_id=report_id,
+            status="rejected",
+            moderation_comment=moderation_comment.strip(),
+        )
+
+        if report is None:
+            raise ValueError("Report not found.")
+
+        return report
+
     @staticmethod
     def _validate_publish_permission(
         actor_is_staff: bool,
@@ -390,6 +544,58 @@ class RecipeService:
         return rating
 
     @staticmethod
+    def _normalize_recipe_moderation_status(status: str | None) -> str | None:
+        if status is None:
+            return None
+
+        normalized_status = status.strip().lower()
+        allowed_statuses = {"draft", "pending", "approved", "rejected"}
+
+        if normalized_status not in allowed_statuses:
+            raise ValueError("Invalid recipe moderation status.")
+
+        return normalized_status
+
+    @staticmethod
+    def _normalize_review_moderation_status(status: str | None) -> str | None:
+        if status is None:
+            return None
+
+        normalized_status = status.strip().lower()
+        allowed_statuses = {"pending", "approved", "rejected"}
+
+        if normalized_status not in allowed_statuses:
+            raise ValueError("Invalid review moderation status.")
+
+        return normalized_status
+
+    @staticmethod
+    def _normalize_report_status(status: str | None) -> str | None:
+        if status is None:
+            return None
+
+        normalized_status = status.strip().lower()
+        allowed_statuses = {"pending", "reviewed", "rejected"}
+
+        if normalized_status not in allowed_statuses:
+            raise ValueError("Invalid report status.")
+
+        return normalized_status
+
+    @staticmethod
+    def _resolve_recipe_publication_state(
+        requested_is_published: bool,
+        actor_is_staff: bool,
+    ) -> tuple[bool, str]:
+        if not requested_is_published:
+            return False, "draft"
+
+        if actor_is_staff:
+            return True, "approved"
+
+        return False, "pending"
+
+    @staticmethod
     def _ensure_recipe_visible(
         recipe: RecipeEntity,
         actor_id: int,
@@ -397,6 +603,11 @@ class RecipeService:
     ) -> None:
         if not recipe.is_published and not actor_is_staff and recipe.author_id != actor_id:
             raise PermissionError("Recipe is not published.")
+
+    @staticmethod
+    def _ensure_moderator(actor_is_staff: bool) -> None:
+        if not actor_is_staff:
+            raise PermissionError("Moderator access required.")
 
     def _notify_followers_about_publication(self, recipe: RecipeEntity) -> None:
         if not recipe.is_published or recipe.id is None or recipe.author_id is None:
